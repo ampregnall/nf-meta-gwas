@@ -1,4 +1,5 @@
 # folders to ignore
 /.nextflow
 /results
-
+.nextflow*
+*.log*
