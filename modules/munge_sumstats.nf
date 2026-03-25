@@ -1,6 +1,6 @@
 process MUNGE_SUMSTATS {
     cpus 4
-    container 'ghcr.io/ampregnall/nf-meta-gwas:0.1.0'
+    container 'ghcr.io/ampregnall/nf-meta-gwas:0.2.0'
 
     input:
         tuple val(meta), path(sumstats)
