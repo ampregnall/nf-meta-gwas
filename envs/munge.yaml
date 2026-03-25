@@ -1,0 +1,15 @@
+name: munge
+channels:
+  - bioconda
+  - conda-forge
+  - default
+dependencies:
+  - r-base=4.3
+  - r-vroom
+  - r-logger
+  - r-dplyr
+  - r-box
+  - r-argparse
+  - bioconductor-rtracklayer
+  - bioconductor-genomicranges
+  - bioconductor-mungesumstats
