@@ -1,5 +1,7 @@
 process MUNGE_SUMSTATS {
     cpus 4
+    // conda '${projectDir}/envs/munge.yaml'
+    
     input:
         tuple val(meta), path(sumstats)
 
@@ -9,12 +11,12 @@ process MUNGE_SUMSTATS {
 
     script:
     """
-    Rscript munge_sumstats.R \
+    munge_sumstats.R \
         --input ${sumstats} \
-        --output ${meta.cohort}.${meta.population} \
+        --output ${meta.phenotype}-${meta.cohort}-${meta.population} \
         --type ${meta.type} \
-        --dbsnp ${params.dbsnp_tarball} \
-        --cpus ${cpus}
+        --dbsnp ${params.dbsnp} \
+        --cpus ${task.cpus} \
         --mac ${params.mac}
     """
 }
