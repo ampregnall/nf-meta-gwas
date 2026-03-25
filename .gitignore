@@ -3,3 +3,6 @@
 /results
 .nextflow*
 *.log*
+
+# singularity images
+containers/*.sif

@@ -1,22 +1,16 @@
 process MUNGE_SUMSTATS {
     cpus 4
-    // conda '${projectDir}/envs/munge.yaml'
-    
+    container 'ghcr.io/ampregnall/nf-meta-gwas:0.1.0'
+
     input:
         tuple val(meta), path(sumstats)
 
     output:
         tuple val(meta), path("*.munged.sumstats.gz"), emit: sumstats_munged
-        // tuple val(meta), path("*.statistics.txt"),     emit: statistics
 
     script:
+    def prefix = "${meta.phenotype}-${meta.cohort}-${meta.population}"
     """
-    munge_sumstats.R \
-        --input ${sumstats} \
-        --output ${meta.phenotype}-${meta.cohort}-${meta.population} \
-        --type ${meta.type} \
-        --dbsnp ${params.dbsnp} \
-        --cpus ${task.cpus} \
-        --mac ${params.mac}
+    test_gwaslab.py --output ${prefix}
     """
 }
