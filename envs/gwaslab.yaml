@@ -1,0 +1,27 @@
+name: gwaslab
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  # compiled deps via conda for binary compatibility
+  - pysam
+  - htslib
+  - openssl=3.0.*
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - h5py
+  - pyarrow
+  - pip:
+      - gwaslab>=4.0
+      - adjusttext
+      - gtfparse
+      - liftover
+      - pyensembl
+      - scikit-allel
+      - polars
