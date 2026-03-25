@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/nf-schema/example/master/assets/schema_input.json",
+    "title": "nf-meta-gwas samplesheet schema",
+    "description": "Schema for the samplesheet file",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "phenotype": {
+                "type": "string",
+                "errorMessage": "Phenotype must be provided"
+            },
+            "trait_type": {
+                "type": "string",
+                "enum": ["binary", "continuous"],
+                "errorMessage": "Type must be either 'binary' or 'continuous'"
+            },
+            "population": {
+                "type": "string",
+                "enum" : ["eur", "afr", "amr", "eas", "csa", "mid"],
+                "errorMessage": "Population must be one of the following: eur, afr, amr, eas, csa, or mid"
+            },
+            "cohort" : {
+                "type" : "string",
+                "errorMessage" : "Cohort is required"
+            }
+        },
+        "required": ["phenotype", "trait_type", "population", "cohort"]
+    }
+}
