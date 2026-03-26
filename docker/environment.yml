@@ -1,4 +1,4 @@
-name: gwaslab
+name: base
 channels:
   - conda-forge
   - bioconda
@@ -18,9 +18,11 @@ dependencies:
   - pyyaml
   - bitarray
   - platformdirs
+  - pysam==0.22.1
+  - bcftools>=1.18
+  - htslib>=1.18
+  - scikit-allel>=1.3.5
   - pip:
     - gwaslab==4.1.4
-    - pysam==0.22.1
     - adjustText>=0.7.3,<=0.8
-    - scikit-allel>=1.3.5
     - sumstats-liftover==1.1.0
