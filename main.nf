@@ -10,5 +10,6 @@ workflow {
             [[phenotype: phenotype, type: trait_type, population: population, cohort: cohort], input_file]
         }
 
-   MUNGE_SUMSTATS(ch_sumstats)     
+   ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats) 
+
 }
