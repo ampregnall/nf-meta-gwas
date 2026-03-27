@@ -35,29 +35,14 @@ sumstats.harmonize(
     threads=args.threads, # pass threads from nextflow process, 
     sweep_mode=True 
     )
-
-sumstats.data.to_csv("debug.txt.gz", index = False, compression="gzip")
-
-# Perform LDSC correction
-sumstats_hapmap3 = sumstats.filter_hapmap3(inplace=False)
-sumstats_hapmap3.estimate_h2_by_ldsc(ref_ld = args.ldsc,  w_ld = args.ldsc)
-
-if np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]) > 1:
-    sumstats.data['SE'] = sumstats.data['SE'] * np.sqrt(np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]))
-    sumstats.data['Z'] = sumstats.data['BETA'] / sumstats.data['SE']
-    sumstats.data['P'] = 2 * norm.sf(abs(sumstats.data['Z']))
-    
     
 if args.type == "binary":
   sumstats.data['MAC'] = sumstats.data['MAF'] * sumstats.data['N_CASE'] * 2
 else:
   sumstats.data['MAC'] = sumstats.data['MAF'] * sumstats.data['N'] * 2
 
-sumstats = sumstats.filter_value('MAC > @args.mac', inplace=True)
+sumstats.data = sumstats.data[sumstats.data['MAC'] > args.mac]
 
 # Save results
-parquet_out = f"{args.output}.sumstats.processed.parquet"
-sumstats_out = f"{args.output}.sumstats.txt.gz"
-
-sumstats.data.to_parquet(parquet_out)
-sumstats.data.to_csv(sumstats_out, index = False, compression="gzip")
+sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
+sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")    
