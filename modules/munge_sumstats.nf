@@ -1,6 +1,6 @@
 process MUNGE_SUMSTATS {
-    cpus 1
-    container 'ghcr.io/ampregnall/nf-meta-gwas-0.2.0'
+    cpus 4
+    // container 'ghcr.io/ampregnall/nf-meta-gwas-0.2.0'
     publishDir { "${launchDir}/data/sumstats-processed/${meta.phenotype}" }, mode: 'copy'
     memory { 48.GB + (12.GB * (task.attempt - 1)) }
     maxRetries 4
@@ -17,16 +17,12 @@ process MUNGE_SUMSTATS {
     def popvcf = params.population_vcf[meta.population]
     def ldsc = params.ldsc_reference[meta.population]
     """
-    munge_sumstats.py \
+    munge_sumstats.R \
       --input ${sumstats} \
       --output ${prefix} \
       --type ${meta.type} \
-      --mac ${params.mac} \
-      --chain ${params.chain} \
-      --fasta ${params.fasta} \
-      --dbsnp ${params.dbsnp} \
-      --popvcf ${popvcf} \
-      --ldsc ${ldsc} \
-      --threads ${task.cpus} \
+      --dbsnp ${params.dbsnptar} \
+      --cpus ${task.cpus} \
+      --mac ${params.mac}
     """
 }
