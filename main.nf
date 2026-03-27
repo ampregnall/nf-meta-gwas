@@ -1,5 +1,6 @@
 include { samplesheetToList } from 'plugin/nf-schema'
 include { MUNGE_SUMSTATS } from "${projectDir}/modules/munge_sumstats.nf"
+include { LDSC_CORRECTION } from "${projectDir}/modules/ldsc_correction.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -10,6 +11,7 @@ workflow {
             [[phenotype: phenotype, type: trait_type, population: population, cohort: cohort], input_file]
         }
 
-   ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats) 
+   ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats)
+   ch_ldsc_corrected = LDSC_CORRECTION(ch_sumstats_munged)
 
 }
