@@ -6,7 +6,10 @@ box::use(
   dplyr,
   MungeSumstats[format_sumstats],
   logger[log_info],
-  argparse[ArgumentParser]
+  argparse[ArgumentParser],
+  BSgenome.Hsapiens.NCBI.GRCh38,
+  SNPlocs.Hsapiens.dbSNP144.GRCh38,
+  BSgenome.Hsapiens.1000genomes.hs37d5
 )
 
 parser <- ArgumentParser(
@@ -15,28 +18,28 @@ parser <- ArgumentParser(
 
 parser$add_argument(
   "--input",
-  type = "string",
+  type = "character",
   required = TRUE,
   help = "Input summary statistics file"
 )
 
 parser$add_argument(
   "--output",
-  type = "string",
+  type = "character",
   required = TRUE,
   help = "Output file"
 )
 
 parser$add_argument(
   "--type",
-  type = "string",
+  type = "character",
   required = TRUE,
   help = "Trait type: binary or quantitative"
 )
 
 parser$add_argument(
   "--dbsnp",
-  type = "string",
+  type = "character",
   required = TRUE
 )
 
@@ -63,7 +66,9 @@ log_info("Running MungeSumstats")
 
 df_formatted <- format_sumstats(
   df,
-  convert_ref_genome = "GRCh38",
+  ref_genome = "GRCh38",
+  #convert_ref_genome = "GRCh38",
+  dbSNP = 144,
   dbSNP_tarball = args$dbsnp,
   return_data = TRUE,
   return_format = "data.table",
@@ -77,11 +82,11 @@ log_info(
 # Apply minor allele count filter
 if (args$type == "binary") {
   df_formatted <- df_formatted |>
-    mutate(MAF = pmin(FRQ, 1 - FRQ), MAC = MAC * N_CASE * 2) |>
+    mutate(MAF = pmin(FRQ, 1 - FRQ), MAC = MAF * N_CAS * 2) |>
     filter(MAC > args$mac)
 } else {
   df_formatted <- df_formatted |>
-    mutate(MAF = pmin(FRQ, 1 - FRQ), MAC = MAC * N * 2) |>
+    mutate(MAF = pmin(FRQ, 1 - FRQ), MAC = MAF * N * 2) |>
     filter(MAC >= args$mac)
 }
 
