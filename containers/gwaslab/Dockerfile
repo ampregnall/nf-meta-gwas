@@ -10,4 +10,5 @@ RUN micromamba install -y -n base -f /tmp/environment.yml && \
 
 ENV PYTHONUNBUFFERED=1
 ENV MPLCONFIGDIR=/tmp/matplotlib
+ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 ENV PATH="/opt/conda/bin:$PATH"
