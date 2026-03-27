@@ -2,9 +2,9 @@ name: munge
 channels:
   - bioconda
   - conda-forge
-  - default
+  - defaults
 dependencies:
-  - r-base=4.3
+  - r-base>=4.5,<4.6
   - r-vroom
   - r-logger
   - r-dplyr
@@ -12,4 +12,7 @@ dependencies:
   - r-argparse
   - bioconductor-rtracklayer
   - bioconductor-genomicranges
-  - bioconductor-mungesumstats
+  - bioconductor-mungesumstats>=1.18
+  - bioconductor-bsgenome.hsapiens.1000genomes.hs37d5
+  - bioconductor-snplocs.hsapiens.dbsnp144.grch38
+  - bioconductor-bsgenome.hsapiens.ncbi.grch38
