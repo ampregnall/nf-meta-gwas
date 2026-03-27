@@ -36,12 +36,14 @@ sumstats.harmonize(
     sweep_mode=True 
     )
 
+sumstats.data.to_csv("debug.txt.gz", index = False, compression="gzip")
+
 # Perform LDSC correction
 sumstats_hapmap3 = sumstats.filter_hapmap3(inplace=False)
 sumstats_hapmap3.estimate_h2_by_ldsc(ref_ld = args.ldsc,  w_ld = args.ldsc)
 
 if np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]) > 1:
-    sumstats.data['SE'] = sumstats.data['SE'] * np.sqrt(np.float64(sumstats.ldsc_h2['Intercept'][0]))
+    sumstats.data['SE'] = sumstats.data['SE'] * np.sqrt(np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]))
     sumstats.data['Z'] = sumstats.data['BETA'] / sumstats.data['SE']
     sumstats.data['P'] = 2 * norm.sf(abs(sumstats.data['Z']))
     
