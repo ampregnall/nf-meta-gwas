@@ -1,0 +1,49 @@
+Bootstrap: docker
+From: bioconductor/bioconductor_docker:RELEASE_3_21
+
+%post
+    # Install system dependencies
+    apt-get update && apt-get install -y --no-install-recommends \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        libz-dev \
+        libbz2-dev \
+        liblzma-dev \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install CRAN packages
+    R --no-echo -e "install.packages( \
+        c('vroom', 'logger', 'argparse', 'box', 'data.table'), \
+        repos = 'https://cloud.r-project.org' \
+    )"
+
+    # Install Bioconductor packages
+    R --no-echo -e "BiocManager::install(c( \
+        'MungeSumstats', \
+        'SNPlocs.Hsapiens.dbSNP155.GRCh38', \
+        'BSgenome.Hsapiens.NCBI.GRCh38', \
+        'BSgenome.Hsapiens.1000genomes.hs37d5' \
+    ), ask = FALSE, update = FALSE)"
+
+%environment
+    export LC_ALL=C
+    export LANG=C
+    export OPENSSL_CONF=/dev/null
+
+%labels
+    Author ampregnall
+    Version 0.1.0
+    Description MungeSumstats with dbSNP155 for GWAS summary statistic harmonization
+
+%help
+    Container for GWAS summary statistic munging using MungeSumstats.
+    Includes:
+      - MungeSumstats (Bioconductor)
+      - SNPlocs.Hsapiens.dbSNP155.GRCh38
+      - BSgenome.Hsapiens.NCBI.GRCh38
+      - BSgenome.Hsapiens.1000genomes.hs37d5
+    
+    Usage:
+      apptainer exec munge_sumstats.sif Rscript munge_sumstats.R --input <file> --output <file>

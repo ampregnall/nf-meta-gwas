@@ -8,7 +8,7 @@ box::use(
   logger[log_info],
   argparse[ArgumentParser],
   BSgenome.Hsapiens.NCBI.GRCh38,
-  SNPlocs.Hsapiens.dbSNP144.GRCh38,
+  SNPlocs.Hsapiens.dbSNP155.GRCh38,
   BSgenome.Hsapiens.1000genomes.hs37d5
 )
 
@@ -38,12 +38,6 @@ parser$add_argument(
 )
 
 parser$add_argument(
-  "--dbsnp",
-  type = "character",
-  required = TRUE
-)
-
-parser$add_argument(
   "--cpus",
   type = "integer",
   default = 1
@@ -66,10 +60,9 @@ log_info("Running MungeSumstats")
 
 df_formatted <- format_sumstats(
   df,
-  ref_genome = "GRCh38",
-  #convert_ref_genome = "GRCh38",
-  dbSNP = 144,
-  dbSNP_tarball = args$dbsnp,
+  ref_genome = NULL,
+  convert_ref_genome = "GRCh38",
+  dbSNP = 155,
   return_data = TRUE,
   return_format = "data.table",
   nThread = args$cpus

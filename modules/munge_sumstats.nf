@@ -1,6 +1,6 @@
 process MUNGE_SUMSTATS {
     cpus 4
-    // container 'ghcr.io/ampregnall/nf-meta-gwas-0.2.0'
+    container 'ghcr.io/ampregnall/nf-meta-gwas:munge-sumstats-v0.1.0'
     publishDir { "${launchDir}/data/sumstats-processed/${meta.phenotype}" }, mode: 'copy'
     memory { 48.GB + (12.GB * (task.attempt - 1)) }
     maxRetries 4
@@ -21,7 +21,6 @@ process MUNGE_SUMSTATS {
       --input ${sumstats} \
       --output ${prefix} \
       --type ${meta.type} \
-      --dbsnp ${params.dbsnptar} \
       --cpus ${task.cpus} \
       --mac ${params.mac}
     """
