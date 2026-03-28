@@ -1,8 +1,7 @@
 process MUNGE_SUMSTATS {
     cpus 4
     container 'ghcr.io/ampregnall/nf-meta-gwas/gwaslab:latest'
-    publishDir { "${launchDir}/data/sumstats-processed/${meta.phenotype}" }, mode: 'copy'
-    memory { 48.GB + (48.GB * (task.attempt - 1)) }
+    clusterOptions = { "-R \"rusage[mem=${48000 * task.attempt}]\"" }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
     
@@ -10,7 +9,7 @@ process MUNGE_SUMSTATS {
         tuple val(meta), path(sumstats)
 
     output:
-        tuple val(meta), path("*.sumstats.processed.txt.gz"), emit: sumstats_munged
+        tuple val(meta), path("*.sumstats.munged.txt.gz"), emit: sumstats_munged
 
     script:
     def prefix = "${meta.phenotype}-${meta.cohort}-${meta.population}"
