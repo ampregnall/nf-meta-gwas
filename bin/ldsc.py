@@ -27,4 +27,5 @@ if np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]) > 1:
 # Save results
 sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
 parquet_out = f"{args.output}.sumstats.parquet"
-sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")   
+sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")
+sumstats.data.to_parquet(parquet_out)
