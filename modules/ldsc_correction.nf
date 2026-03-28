@@ -1,7 +1,13 @@
 process LDSC_CORRECTION {
     cpus 1
     container 'ghcr.io/ampregnall/nf-meta-gwas/gwaslab:latest'
-    publishDir { "${launchDir}/data/sumstats-processed/${meta.phenotype}" }, mode: 'copy'
+
+    publishDir(
+        { "${launchDir}/data/sumstats-processed/${meta.phenotype}" },
+        mode: 'copy',
+        pattern: "*.sumstats.processed.txt.gz"
+    )
+
     memory { 16.GB + (12.GB * (task.attempt - 1)) }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
@@ -10,7 +16,7 @@ process LDSC_CORRECTION {
         tuple val(meta), path(sumstats)
 
     output:
-        tuple val(meta), path("*.sumstats.processed.txt.gz"), emit: sumstats_munged
+        tuple val(meta), path("*.sumstats.parquet")
 
     script:
     def prefix = "${meta.phenotype}-${meta.cohort}-${meta.population}"
