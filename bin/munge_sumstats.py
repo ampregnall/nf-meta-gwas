@@ -44,5 +44,5 @@ else:
 sumstats.data = sumstats.data[sumstats.data['MAC'] > args.mac]
 
 # Save results
-sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
+sumstats_out = f"{args.output}.sumstats.munged.txt.gz"
 sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")    
