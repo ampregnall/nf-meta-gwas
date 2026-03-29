@@ -25,9 +25,17 @@ sumstats.infer_build(verbose=True)
 # Liftover if statistics are on hg19
 if sumstats.build == '19':
     sumstats.liftover(to_build='38', from_build='19', chain_path=args.chain)
-    
+
+sumstats.basic_check(
+    remove=True,
+    remove_dup=True,
+    normalize=True,
+    remove_dup_kwargs={"mode": "md", "keep": "first", "keep_col": "P"},
+)
+
 # Harmonize summary statistics
 sumstats.harmonize(
+    basic_check=False, 
     ref_seq=args.fasta,
     ref_rsid_vcf=args.dbsnp, 
     ref_infer=args.popvcf, # Ancestry specific. Logic handled by Nextflow
@@ -35,7 +43,11 @@ sumstats.harmonize(
     threads=args.threads, # pass threads from nextflow process, 
     sweep_mode=True 
     )
-    
+
+status_str = sumstats.data["STATUS"].astype(str)
+mask = ~(status_str.str[6].isin(["7", "8"]) | status_str.str[5].isin(["6"]))
+sumstats.data = sumstats.data[mask].copy()
+
 if args.type == "binary":
   sumstats.data['MAC'] = sumstats.data['MAF'] * sumstats.data['N_CASE'] * 2
 else:
