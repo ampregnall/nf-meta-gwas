@@ -1,6 +1,7 @@
 include { samplesheetToList } from 'plugin/nf-schema'
 include { MUNGE_SUMSTATS } from "${projectDir}/modules/munge_sumstats.nf"
 include { LDSC_CORRECTION } from "${projectDir}/modules/ldsc_correction.nf"
+include { META_ANALYZE } from "${projectDir}/modules/meta_analysis.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -13,5 +14,22 @@ workflow {
 
    ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats)
    ch_ldsc_corrected = LDSC_CORRECTION(ch_sumstats_munged)
-
+   
+   ch_chroms = Channel.of(1..22)
+   
+    ch_across_populations = ch_ldsc_corrected
+        .map { meta, sumstats -> 
+            tuple([phenotype: meta.phenotype, population: "all", type: meta.type], sumstats) 
+        }
+        .groupTuple(by: 0)
+        .combine(ch_chroms)
+    
+    ch_within_populations = ch_ldsc_corrected
+        .map { meta, sumstats -> 
+            tuple([phenotype: meta.phenotype, population: meta.population, type: meta.type], sumstats) 
+        }
+        .groupTuple(by: 0)
+        .combine(ch_chroms)
+    
+    ch_meta = META_ANALYZE(ch_across_populations.mix(ch_within_populations))
 }
