@@ -16,6 +16,9 @@ parser.add_argument("--dbsnp", type=str, required=True, help="Path to dbSNP VCF 
 parser.add_argument("--popvcf", type=str, required=True, help = "Path to population specific VCF file for strand inference")
 parser.add_argument("--ldsc", type=str, required=True, help = "Path to Pan-UKBB LD reference panels")
 parser.add_argument("--threads", type=int, required=True, help = "Number of threads")
+parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
+parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
+parser.add_argument("--population", type=str, required=True, help="Population label")
 args = parser.parse_args()
 
 
@@ -55,6 +58,17 @@ else:
 
 sumstats.data = sumstats.data[sumstats.data['MAC'] > args.mac]
 
+# Create DAF plot
+fig = sumstats.plot_daf(
+    title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
+    fontsize=8,
+    font_family="DejaVu Sans",
+    fig_kwargs={"figsize": (7.5, 5), "dpi": 400}
+)
+
+fig.savefig(f"{args.output}-daf.png", dpi=400, bbox_inches="tight")
+fig.savefig(f"{args.output}-daf.pdf", dpi=400, bbox_inches="tight")
+
 # Save results
 sumstats_out = f"{args.output}.sumstats.munged.txt.gz"
-sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")    
+sumstats.data.to_csv(sumstats_out, index=False, compression="gzip", sep="\t")
