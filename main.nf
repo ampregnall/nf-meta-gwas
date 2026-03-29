@@ -14,7 +14,7 @@ workflow {
         }
 
     ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats)
-    ch_ldsc_out = LDSC_CORRECTION(ch_sumstats_munged)
+    ch_ldsc_out = LDSC_CORRECTION(ch_sumstats_munged.sumstats_munged)
 
     // Gather LDSC h2 results per phenotype and publish combined file
     ch_ldsc_out.ldsc_h2
