@@ -11,9 +11,9 @@ RUN micromamba install -y -n base -f /tmp/environment.yml && \
 ENV PYTHONUNBUFFERED=1
 ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
-ENV GWASLAB_CACHE_DIR=/opt/gwaslab_cache
+ENV GWASLAB_CACHE_DIR=/tmp/gwaslab_cache
 ENV PATH="/opt/conda/bin:$PATH"
 
-RUN mkdir -p /opt/gwaslab_cache && chmod 777 /opt/gwaslab_cache
+RUN mkdir -p /tmp/gwaslab_cache
 
 RUN python -c "import gwaslab as gl; gl.download_ref('ensembl_hg38_gtf')"
