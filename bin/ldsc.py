@@ -8,7 +8,10 @@ from scipy.stats import norm
 parser = argparse.ArgumentParser(description="Test gwaslab installation")
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
 parser.add_argument("--output", type=str, required=True, help="Output filenmame")
-parser.add_argument("--ldsc", type=str, required=True, help = "Path to Pan-UKBB LD reference panels")
+parser.add_argument("--ldsc", type=str, required=True, help="Path to Pan-UKBB LD reference panels")
+parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
+parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
+parser.add_argument("--population", type=str, required=True, help="Population label")
 args = parser.parse_args()
 
 
@@ -24,8 +27,16 @@ if np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]) > 1:
     sumstats.data['Z'] = sumstats.data['BETA'] / sumstats.data['SE']
     sumstats.data['P'] = 2 * norm.sf(abs(sumstats.data['Z']))
     
-# Save results
+# Save LDSC h2 results
+ldsc_df = sumstats_hapmap3.ldsc_h2.copy()
+ldsc_df.insert(0, "population", args.population)
+ldsc_df.insert(0, "cohort", args.cohort)
+ldsc_df.insert(0, "phenotype", args.phenotype)
+ldsc_out = f"{args.output}.ldsc_h2.txt"
+ldsc_df.to_csv(ldsc_out, index=False, sep="\t")
+
+# Save sumstats results
 sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
 parquet_out = f"{args.output}.sumstats.parquet"
-sumstats.data.to_csv(sumstats_out, index = False, compression="gzip", sep = "\t")
+sumstats.data.to_csv(sumstats_out, index=False, compression="gzip", sep="\t")
 sumstats.data.to_parquet(parquet_out)
