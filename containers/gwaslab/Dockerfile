@@ -13,7 +13,4 @@ ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 ENV PATH="/opt/conda/bin:$PATH"
 
-RUN python -c "
-import gwaslab as gl
-gl.download_ref('ensembl_hg38_gtf')
-"
+RUN python -c "import gwaslab as gl; gl.download_ref('ensembl_hg38_gtf')"
