@@ -11,7 +11,6 @@ process LDSC_CORRECTION {
         mode: 'copy',
         pattern: "*.{pdf,png}"
     )
-    containerOptions '--writable-tmpfs'
     memory { 16.GB + (12.GB * (task.attempt - 1)) }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
