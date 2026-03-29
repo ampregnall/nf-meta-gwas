@@ -1,5 +1,6 @@
 process META_ANALYZE {
     cpus 1
+    container 'ghcr.io/ampregnall/nf-meta-gwas/meta-analysis:latest'
     publishDir { "${launchDir}/data/meta-analysis/${meta.phenotype}" }, mode: 'copy'
     clusterOptions = { "-R \"rusage[mem=${48000 * task.attempt}]\"" }
     maxRetries 4
