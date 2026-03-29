@@ -8,6 +8,11 @@ COPY environment.yml /tmp/environment.yml
 RUN micromamba install -y -n base -f /tmp/environment.yml && \
     micromamba clean --all --yes
 
+RUN python -c "
+import gwaslab as gl
+gl.download_ref('ensembl_hg38_gtf')
+"
+
 ENV PYTHONUNBUFFERED=1
 ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
