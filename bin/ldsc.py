@@ -4,6 +4,7 @@ import argparse
 import gwaslab as gl
 import numpy as np
 from scipy.stats import norm
+import os
 
 parser = argparse.ArgumentParser(description="Test gwaslab installation")
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
@@ -14,6 +15,7 @@ parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
 parser.add_argument("--population", type=str, required=True, help="Population label")
 args = parser.parse_args()
 
+gl.options.set_option("data_directory", os.path.abspath("."))
 
 sumstats = gl.Sumstats(args.input, fmt="gwaslab", build="38")
 
@@ -34,6 +36,22 @@ ldsc_df.insert(0, "cohort", args.cohort)
 ldsc_df.insert(0, "phenotype", args.phenotype)
 ldsc_out = f"{args.output}.ldsc_h2.txt"
 ldsc_df.to_csv(ldsc_out, index=False, sep="\t")
+
+# Create manhattan and qq plot
+fig = sumstats.plot_mqq(
+    skip=3,
+    anno="GENENAME",
+    build="38",
+    title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
+    anno_style="expand",
+    fontsize=8,
+    anno_fontsize=8,
+    font_family="DejaVu Sans",
+    fig_kwargs={"figsize": (7.5, 5), "dpi": 400}
+)
+
+fig.savefig(f"{args.output}-manhattan-qq.png", dpi=400, bbox_inches="tight")
+fig.savefig(f"{args.output}-manhattan-qq.pdf", dpi=400, bbox_inches="tight")
 
 # Save sumstats results
 sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
