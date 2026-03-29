@@ -3,7 +3,19 @@
 box::use(
   vroom[vroom, vroom_write],
   arrow,
-  dplyr,
+  dplyr[
+    filter,
+    mutate,
+    collect,
+    group_by,
+    summarise,
+    select,
+    if_else,
+    across,
+    arrange,
+    any_of,
+    all_of
+  ],
   glue[glue],
   logger[log_info, log_warn],
   argparse[ArgumentParser]
@@ -19,29 +31,29 @@ parser <- ArgumentParser(
 
 parser$add_argument(
   "--chr",
-  type    = "integer",
+  type = "integer",
   required = TRUE,
   metavar = "INT",
-  help    = "Chromosome to process (e.g. 1)"
+  help = "Chromosome to process (e.g. 1)"
 )
 
 parser$add_argument(
   "--type",
-  dest     = "trait_type",
-  type     = "character",
+  dest = "trait_type",
+  type = "character",
   required = TRUE,
-  choices  = c("binary", "continuous"),
-  metavar  = "STR",
-  help     = "Trait type: 'binary' or 'continuous' [required]"
+  choices = c("binary", "continuous"),
+  metavar = "STR",
+  help = "Trait type: 'binary' or 'continuous' [required]"
 )
 
 parser$add_argument(
   "--output",
-  dest    = "out_prefix",
-  type    = "character",
+  dest = "out_prefix",
+  type = "character",
   default = "meta",
   metavar = "STR",
-  help    = "Output file prefix [default: meta]"
+  help = "Output file prefix [default: meta]"
 )
 
 args <- parser$parse_args()
@@ -49,20 +61,20 @@ args <- parser$parse_args()
 # -----------------------------------------------------------------------------
 # 2. Hard-coded column schema
 # -----------------------------------------------------------------------------
-CHR_COL         <- "CHR"
-POS_COL         <- "POS"
-RSID_COL        <- "rsID"
-EA_COL          <- "EA"
-NEA_COL         <- "NEA"
-EAF_COL         <- "EAF"
-BETA_COL        <- "BETA"
-SE_COL          <- "SE"
-N_COL           <- "N"
-N_CASE_COL      <- "N_CASE"
-N_CONTROL_COL   <- "N_CONTROL"
+CHR_COL <- "CHR"
+POS_COL <- "POS"
+RSID_COL <- "rsID"
+EA_COL <- "EA"
+NEA_COL <- "NEA"
+EAF_COL <- "EAF"
+BETA_COL <- "BETA"
+SE_COL <- "SE"
+N_COL <- "N"
+N_CASE_COL <- "N_CASE"
+N_CONTROL_COL <- "N_CONTROL"
 
-by_cols      <- c(CHR_COL, POS_COL, RSID_COL, EA_COL, NEA_COL)
-eaf_n_col    <- paste0("N_", EAF_COL)   # temporary column for EAF weighting
+by_cols <- c(CHR_COL, POS_COL, RSID_COL, EA_COL, NEA_COL)
+eaf_n_col <- paste0("N_", EAF_COL) # temporary column for EAF weighting
 
 if (args$trait_type == "binary") {
   n_cols_to_sum <- c(EAF_COL, N_CASE_COL, N_CONTROL_COL, N_COL)
@@ -103,8 +115,8 @@ meta_results <- ds |>
     .data[[SE_COL]] > 0
   ) |>
   mutate(
-    W   = 1 / (.data[[SE_COL]])^2,
-    B   = .data[[BETA_COL]] * W,
+    W = 1 / (.data[[SE_COL]])^2,
+    B = .data[[BETA_COL]] * W,
     WB2 = (B^2) / W,
     # Weight EAF by N before grouping so we can compute a N-weighted mean later
     across(
@@ -130,8 +142,8 @@ meta_results <- ds |>
   collect() |>
   mutate(
     B_w = B,
-    B   = B / W,
-    SE  = 1 / sqrt(W),
+    B = B / W,
+    SE = 1 / sqrt(W),
     # Recover N-weighted mean EAF
     across(
       any_of(EAF_COL),
@@ -143,11 +155,11 @@ meta_results <- ds |>
     z_score = B / SE,
     p_value = 2 * stats::pnorm(-abs(z_score)),
     # Cochran's Q heterogeneity
-    Q      = WB2 - (B_w^2) / W,
-    Q_df   = pmax(n_contributions - 1L, 0L),
+    Q = WB2 - (B_w^2) / W,
+    Q_df = pmax(n_contributions - 1L, 0L),
     Q_pval = stats::pchisq(Q, df = Q_df, lower.tail = FALSE),
     Q_pval = if_else(Q_df == 0L, 1, Q_pval),
-    I2     = if_else(Q > 0, pmax((Q - Q_df) / Q, 0), 0)
+    I2 = if_else(Q > 0, pmax((Q - Q_df) / Q, 0), 0)
   )
 
 if (nrow(meta_results) == 0) {
@@ -163,39 +175,42 @@ if (args$trait_type == "binary") {
   meta_results <- meta_results |>
     select(
       CHR,
-      POS       = all_of(POS_COL),
-      rsID         = all_of(RSID_COL),
+      POS = all_of(POS_COL),
+      rsID = all_of(RSID_COL),
       EA = all_of(EA_COL),
-      NEA  = all_of(NEA_COL),
-      B, SE, P = p_value, Z = z_score,
-      EAF          = all_of(EAF_COL),
+      NEA = all_of(NEA_COL),
+      B,
+      SE,
+      P = p_value,
+      Z = z_score,
+      EAF = all_of(EAF_COL),
       N_CONTRIBUTIONS = n_contributions,
       N_CASE,
       N_CONTROL,
       N,
-      Q, 
-      Q_DF = Q_df, 
-      Q_P = Q_pval, 
+      Q,
+      Q_DF = Q_df,
+      Q_P = Q_pval,
       I2
     )
 } else {
   meta_results <- meta_results |>
     select(
       CHR,
-      POS       = all_of(POS_COL),
-      rsID         = all_of(RSID_COL),
+      POS = all_of(POS_COL),
+      rsID = all_of(RSID_COL),
       EA = all_of(EA_COL),
-      NEA  = all_of(NEA_COL),
-      B, 
-      SE, 
-      P = p_value, 
+      NEA = all_of(NEA_COL),
+      B,
+      SE,
+      P = p_value,
       Z = z_score,
-      EAF          = all_of(EAF_COL),
+      EAF = all_of(EAF_COL),
       N_CONTRIBUTIONS = n_contributions,
-      N            = all_of(N_COL),
-      Q, 
-      Q_DF = Q_df, 
-      Q_P = Q_pval, 
+      N = all_of(N_COL),
+      Q,
+      Q_DF = Q_df,
+      Q_P = Q_pval,
       I2
     )
 }
