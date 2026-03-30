@@ -2,19 +2,16 @@
 
 import argparse
 import gwaslab as gl
-import numpy as np
-from scipy.stats import norm
 
-parser = argparse.ArgumentParser(description="Test gwaslab installation")
+parser = argparse.ArgumentParser(description="Estimate SNP heritability from meta-analysis summary statistics")
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
-parser.add_argument("--output", type=str, required=True, help="Output filenmame")
+parser.add_argument("--output", type=str, required=True, help="Output filename")
 parser.add_argument(
     "--ldsc", type=str, required=True, help="Path to Pan-UKBB LD reference panels"
 )
 parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
 parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
 parser.add_argument("--population", type=str, required=True, help="Population label")
-parser.add_argument("--gtf", type=str, required=True, help="GTF file")
 args = parser.parse_args()
 
 
