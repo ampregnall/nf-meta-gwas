@@ -6,6 +6,7 @@ include { META_ANALYZE } from "${projectDir}/modules/meta_analysis.nf"
 include { COLLECT_META_RESULTS } from "${projectDir}/modules/collect_meta.nf"
 include { EXTRACT_LEAD_VARIANTS } from "${projectDir}/modules/lead_variants.nf"
 include { HERITABILITY } from "${projectDir}/modules/heritability.nf"
+include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -57,5 +58,11 @@ workflow {
     // Heritability estimation on per-population meta results only (ldsc_reference is per-population)
     HERITABILITY(
         ch_collected_meta.sumstats.filter { it[0].population != "all" }
+    )
+
+    // ABF fine-mapping: join collected meta sumstats with lead variants
+    ABF_FINEMAPPING(
+        ch_collected_meta.sumstats
+            .join(ch_lead.lead_variants, by: 0)
     )
 }
