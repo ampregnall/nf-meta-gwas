@@ -7,6 +7,7 @@ include { COLLECT_META_RESULTS } from "${projectDir}/modules/collect_meta.nf"
 include { EXTRACT_LEAD_VARIANTS } from "${projectDir}/modules/lead_variants.nf"
 include { HERITABILITY } from "${projectDir}/modules/heritability.nf"
 include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
+include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -65,4 +66,7 @@ workflow {
         ch_collected_meta.sumstats
             .join(ch_lead.lead_variants, by: 0)
     )
+
+    // Tissue and cell type enrichment on all meta-analysis results
+    TISSUE_ENRICHMENT(ch_collected_meta.sumstats)
 }

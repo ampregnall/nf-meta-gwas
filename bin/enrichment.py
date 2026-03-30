@@ -1,13 +1,12 @@
 import gwaslab as gl
 import argparse
 
-parser = argparse.ArgumentParser(description="Argument parser for tissue and cell type enrichment")
-parser.add_argument("--input", type=str, required=True, help="Path to input file")
-parser.add_argument("--output", type=str, required=True, help="Output filenmame")
-parser.add_argument("--ld", type=str, required=True, help="Path to Pan-UKBB LD reference panels")
-parser.add_argument("--ldcts", type=str, required=True, help="Phenotype name")
-parser.add_argument("--weights", type=str, required=True, help="Cohort name")
-parser.add_argument("--output", type=str, required=True, help="Population label")
+parser = argparse.ArgumentParser(description="Tissue and cell type enrichment analysis using LDSC-CTS")
+parser.add_argument("--input",   type=str, required=True, help="Path to input file")
+parser.add_argument("--output",  type=str, required=True, help="Output filename")
+parser.add_argument("--ld",      type=str, required=True, help="Path to Pan-UKBB LD reference panels")
+parser.add_argument("--ldcts",   type=str, required=True, help="Path to cell-type LD scores file")
+parser.add_argument("--weights", type=str, required=True, help="Path to LD score weights")
 args = parser.parse_args()
 
 sumstats = gl.Sumstats(args.input, fmt="gwaslab", build="38")
