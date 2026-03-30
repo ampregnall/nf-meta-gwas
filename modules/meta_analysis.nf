@@ -1,7 +1,6 @@
 process META_ANALYZE {
     cpus 1
     container 'ghcr.io/ampregnall/nf-meta-gwas/meta-analysis:latest'
-    publishDir { "${launchDir}/data/meta-analysis/${meta.phenotype}" }, mode: 'copy'
     clusterOptions = { "-R \"rusage[mem=${48000 * task.attempt}]\"" }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
@@ -10,7 +9,7 @@ process META_ANALYZE {
         tuple val(meta), path(sumstats), val(chrom)
 
     output:
-        tuple val(meta), path("*.txt.gz")
+        tuple val(meta), path("*.txt")
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"

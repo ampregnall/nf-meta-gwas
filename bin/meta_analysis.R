@@ -14,7 +14,9 @@ box::use(
     across,
     arrange,
     any_of,
-    all_of
+    all_of, 
+    rename,
+    everything
   ],
   glue[glue],
   logger[log_info, log_warn],
@@ -126,7 +128,7 @@ meta_results <- ds |>
   ) |>
   group_by(across(all_of(by_cols))) |>
   summarise(
-    n_contributions = n(),
+    N_CONTRIBUTIONS = n(),
     # Accumulate total N used for EAF weighting
     across(
       any_of(EAF_COL),
@@ -152,14 +154,14 @@ meta_results <- ds |>
   ) |>
   select(-any_of(eaf_n_col)) |>
   mutate(
-    z_score = B / SE,
-    p_value = 2 * stats::pnorm(-abs(z_score)),
+    Z = B / SE,
+    P = 2 * stats::pnorm(-abs(Z)),
     # Cochran's Q heterogeneity
     Q = WB2 - (B_w^2) / W,
-    Q_df = pmax(n_contributions - 1L, 0L),
-    Q_pval = stats::pchisq(Q, df = Q_df, lower.tail = FALSE),
-    Q_pval = if_else(Q_df == 0L, 1, Q_pval),
-    I2 = if_else(Q > 0, pmax((Q - Q_df) / Q, 0), 0)
+    Q_DF = pmax(N_CONTRIBUTIONS - 1L, 0L),
+    Q_PVAL = stats::pchisq(Q, df = Q_DF, lower.tail = FALSE),
+    Q_PVAL = if_else(Q_DF == 0L, 1, Q_PVAL),
+    I2 = if_else(Q > 0, pmax((Q - Q_DF) / Q, 0), 0)
   )
 
 if (nrow(meta_results) == 0) {
@@ -181,16 +183,16 @@ if (args$trait_type == "binary") {
       NEA = all_of(NEA_COL),
       B,
       SE,
-      P = p_value,
-      Z = z_score,
+      P,
+      Z,
       EAF = all_of(EAF_COL),
-      N_CONTRIBUTIONS = n_contributions,
+      N_CONTRIBUTIONS,
       N_CASE,
       N_CONTROL,
       N,
       Q,
-      Q_DF = Q_df,
-      Q_P = Q_pval,
+      Q_DF,
+      Q_PVAL,
       I2
     )
 } else {
@@ -203,20 +205,25 @@ if (args$trait_type == "binary") {
       NEA = all_of(NEA_COL),
       B,
       SE,
-      P = p_value,
-      Z = z_score,
+      P,
+      Z,
       EAF = all_of(EAF_COL),
-      N_CONTRIBUTIONS = n_contributions,
+      N_CONTRIBUTIONS,
       N = all_of(N_COL),
       Q,
-      Q_DF = Q_df,
-      Q_P = Q_pval,
+      Q_DF,
+      Q_PVAL,
       I2
     )
 }
 
+meta_results <- meta_results |>
+  rename(BETA = B) |> 
+  mutate(SNPID = glue("{CHR}:{POS}:{NEA}:{EA}")) |> 
+  select(SNPID, everything())
+
 # -----------------------------------------------------------------------------
 # 6. Write output
 # -----------------------------------------------------------------------------
-out_file <- glue("{args$out_prefix}.chr{args$chr}.txt.gz")
+out_file <- glue("{args$out_prefix}.chr{args$chr}.txt")
 vroom_write(meta_results, out_file)
