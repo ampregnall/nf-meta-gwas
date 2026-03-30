@@ -4,31 +4,34 @@ import argparse
 import gwaslab as gl
 import numpy as np
 from scipy.stats import norm
-import os
 
 parser = argparse.ArgumentParser(description="Test gwaslab installation")
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
 parser.add_argument("--output", type=str, required=True, help="Output filenmame")
-parser.add_argument("--ldsc", type=str, required=True, help="Path to Pan-UKBB LD reference panels")
+parser.add_argument(
+    "--ldsc", type=str, required=True, help="Path to Pan-UKBB LD reference panels"
+)
 parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
 parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
 parser.add_argument("--population", type=str, required=True, help="Population label")
+parser.add_argument("--gtf", type=str, required=True, help="GTF file")
 args = parser.parse_args()
 
-gl.options.set_option("data_directory", os.path.abspath("."))
 
 sumstats = gl.Sumstats(args.input, fmt="gwaslab", build="38")
 
 # Perform LDSC correction
 sumstats_hapmap3 = sumstats.filter_hapmap3(inplace=False)
-sumstats_hapmap3.estimate_h2_by_ldsc(ref_ld = args.ldsc,  w_ld = args.ldsc)
+sumstats_hapmap3.estimate_h2_by_ldsc(ref_ld=args.ldsc, w_ld=args.ldsc)
 
 
-if np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]) > 1:
-    sumstats.data['SE'] = sumstats.data['SE'] * np.sqrt(np.float64(sumstats_hapmap3.ldsc_h2['Intercept'][0]))
-    sumstats.data['Z'] = sumstats.data['BETA'] / sumstats.data['SE']
-    sumstats.data['P'] = 2 * norm.sf(abs(sumstats.data['Z']))
-    
+if np.float64(sumstats_hapmap3.ldsc_h2["Intercept"][0]) > 1:
+    sumstats.data["SE"] = sumstats.data["SE"] * np.sqrt(
+        np.float64(sumstats_hapmap3.ldsc_h2["Intercept"][0])
+    )
+    sumstats.data["Z"] = sumstats.data["BETA"] / sumstats.data["SE"]
+    sumstats.data["P"] = 2 * norm.sf(abs(sumstats.data["Z"]))
+
 # Save LDSC h2 results
 ldsc_df = sumstats_hapmap3.ldsc_h2.copy()
 ldsc_df.insert(0, "population", args.population)
@@ -46,8 +49,9 @@ fig = sumstats.plot_mqq(
     anno_style="expand",
     fontsize=8,
     anno_fontsize=8,
+    anno_gtf_path=args.gtf,
     font_family="DejaVu Sans",
-    fig_kwargs={"figsize": (7.5, 5), "dpi": 400}
+    fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
 )
 
 fig.savefig(f"{args.output}-manhattan-qq.png", dpi=400, bbox_inches="tight")

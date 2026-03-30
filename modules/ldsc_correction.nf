@@ -31,6 +31,7 @@ process LDSC_CORRECTION {
       --ldsc ${ldsc} \
       --phenotype ${meta.phenotype} \
       --cohort ${meta.cohort} \
-      --population ${meta.population}
+      --population ${meta.population} \
+      --gtf ${params.gtf}
     """
 }
