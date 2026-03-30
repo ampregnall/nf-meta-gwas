@@ -1,10 +1,10 @@
 # nf-meta-gwas
 
-A Nextflow pipeline for multi-population GWAS summary statistics processing, meta-analysis, and downstream functional interpretation including fine-mapping, gene prioritisation, and colocalization analysis.
+A Nextflow pipeline for multi-population GWAS summary statistics processing, meta-analysis, and downstream functional interpretation including fine-mapping, heritability estimation, and tissue/cell type enrichment analysis.
 
 ## Introduction
 
-**nf-meta-gwas** takes raw GWAS summary statistics from one or more cohorts and populations, harmonises them to a common reference genome (GRCh38), performs LD-score regression (LDSC) intercept correction for genomic inflation, and runs fixed-effects inverse-variance weighted (IVW) meta-analysis within and across populations. Downstream modules (in development) will support fine-mapping, gene prioritisation, tissue and cell type enrichment, heritability estimation, and eQTL/pQTL colocalization.
+**nf-meta-gwas** takes raw GWAS summary statistics from one or more cohorts and populations, harmonises them to a common reference genome (GRCh38), performs LD-score regression (LDSC) intercept correction for genomic inflation, and runs fixed-effects inverse-variance weighted (IVW) meta-analysis within and across populations. Downstream modules perform lead variant extraction, SNP heritability estimation, Approximate Bayes Factor (ABF) credible set fine-mapping, and tissue/cell type enrichment analysis via LDSC-CTS.
 
 The pipeline is written in [Nextflow](https://www.nextflow.io/) and uses [Apptainer](https://apptainer.org/) (formerly Singularity) containers to ensure reproducibility. All compute-intensive steps are designed to run on an HPC cluster via the LSF scheduler, though a local execution profile is also provided.
 
@@ -26,7 +26,7 @@ Raw summary statistics (per cohort × population)
 │  MUNGE_SUMSTATS                                             │
 │  • Build inference and liftover to GRCh38 (if needed)      │
 │  • Basic QC: remove duplicates, normalize alleles           │
-│  • Harmonize against reference genome, assign rsIDs        │
+│  • Harmonize against reference genome, assign rsIDs         │
 │  • Allele frequency inference from population VCF           │
 │  • MAC filter                                               │
 │  • DAF plot (PDF + PNG)                                     │
@@ -50,8 +50,23 @@ Raw summary statistics (per cohort × population)
 │  • Cochran's Q heterogeneity statistics                     │
 └─────────────────────────────────────────────────────────────┘
         │
+        ├──────────────────────────┬─────────────────────────┐
+        ▼                          ▼                         ▼
+┌───────────────────┐  ┌───────────────────────┐  ┌─────────────────────┐
+│ EXTRACT_LEAD_     │  │ HERITABILITY          │  │ TISSUE_ENRICHMENT   │
+│ VARIANTS          │  │ • LDSC h² on meta     │  │ • LDSC-CTS          │
+│ • genome-wide     │  │   sumstats            │  │   partitioned h²    │
+│   significant     │  │ • per-population      │  │ • tissue and cell   │
+│   loci            │  │   only                │  │   type enrichment   │
+│ • Manhattan plot  │  └───────────────────────┘  └─────────────────────┘
+└───────────────────┘
+        │
         ▼
-   [downstream modules — in development]
+┌─────────────────────────────────────────────────────────────┐
+│  ABF_FINEMAPPING                                            │
+│  • Extract variants within 500 kb of each lead locus        │
+│  • Approximate Bayes Factor credible sets (99%)             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -135,15 +150,19 @@ Files are expected in the **gwaslab** input format (tab-delimited, gzip-compress
 
 ### Reference files
 
-The following reference files are required and are configured in `nextflow.config`. Default paths are set for the Voltron HPC environment:
+The following reference files are required and configured in `nextflow.config`. Default paths are set for the Voltron HPC environment:
 
 | Parameter | Description |
 |-----------|-------------|
 | `params.fasta` | GRCh38 reference genome FASTA |
 | `params.dbsnp` | dbSNP VCF for rsID assignment (GCF_000001405.40) |
 | `params.chain` | LiftOver chain file (hg19 → hg38) |
+| `params.gtf` | Ensembl GTF for gene annotation |
 | `params.population_vcf` | Per-population 1000 Genomes VCF (hg38, 30×) for allele frequency inference |
-| `params.ldsc_reference` | Per-population Pan-UKBB LD score reference panels |
+| `params.ldsc_reference` | Per-population Pan-UKBB LD score reference panels (used for LDSC correction, heritability, and enrichment) |
+| `params.ldcts` | Cell-type LD score file for LDSC-CTS enrichment analysis |
+| `params.ldcts_weights` | LD score weights for LDSC-CTS (typically HapMap3, no MHC) |
+| `params.ldbaseline` | Baseline LD score annotations for LDSC-CTS |
 
 ---
 
@@ -157,6 +176,10 @@ The following reference files are required and are configured in `nextflow.confi
 | `--fasta` | see config | GRCh38 reference FASTA |
 | `--dbsnp` | see config | dbSNP VCF |
 | `--chain` | see config | LiftOver chain file |
+| `--gtf` | see config | Ensembl GTF file |
+| `--ldcts` | see config | Cell-type LD scores for LDSC-CTS |
+| `--ldcts_weights` | see config | LD score weights for LDSC-CTS |
+| `--ldbaseline` | see config | Baseline LD score annotations for LDSC-CTS |
 
 ---
 
@@ -170,9 +193,22 @@ results/
 ├── manhattan-qq/
 │   └── {phenotype}/
 │       └── {cohort}-{phenotype}-{population}-manhattan-qq.{pdf,png}
-└── ldsc/
+├── ldsc/
+│   └── {phenotype}/
+│       └── {phenotype}.ldsc_h2.txt
+├── lead-variants/
+│   └── {phenotype}/
+│       ├── {phenotype}-{population}-manhattan-qq.{pdf,png}
+│       └── {phenotype}-{population}.lead.variants.txt
+├── heritability/
+│   └── {phenotype}/
+│       └── {phenotype}-{population}.ldsc_h2.txt
+├── finemapping/
+│   └── {phenotype}/
+│       └── {phenotype}-{population}.credset.txt
+└── enrichment/
     └── {phenotype}/
-        └── {phenotype}.ldsc_h2.txt
+        └── {phenotype}-{population}.enrichment.txt
 
 data/
 ├── sumstats-processed/
@@ -180,12 +216,20 @@ data/
 │       └── {cohort}-{phenotype}-{population}.sumstats.processed.txt.gz
 └── meta-analysis/
     └── {phenotype}/
-        └── {phenotype}-{population}.chr{1..22}.txt.gz
+        └── {phenotype}-{population}.txt.gz
 ```
 
 **`ldsc_h2.txt`** columns: `phenotype`, `cohort`, `population`, `h2`, `h2_se`, `Intercept`, `Intercept_se`, `Lambda_GC`, `Mean_Chi2`, `Ratio`, `Ratio_se`
 
-**Meta-analysis output** columns: `CHR`, `POS`, `rsID`, `EA`, `NEA`, `B`, `SE`, `P`, `Z`, `EAF`, `N_CONTRIBUTIONS`, `N` (+ `N_CASE`, `N_CONTROL` for binary traits), `Q`, `Q_DF`, `Q_P`, `I2`
+**Meta-analysis output** columns: `SNPID`, `CHR`, `POS`, `rsID`, `EA`, `NEA`, `BETA`, `SE`, `P`, `Z`, `EAF`, `N_CONTRIBUTIONS`, `N` (+ `N_CASE`, `N_CONTROL` for binary traits), `Q`, `Q_DF`, `Q_PVAL`, `I2`
+
+**`lead.variants.txt`**: genome-wide significant loci annotated with nearest gene (gwaslab format)
+
+**`credset.txt`** columns: `SNPID`, `rsID`, `LOCUS`, `CHR`, `POS`, `EA`, `NEA`, `BETA`, `SE`, `NEAREST_GENE`, `BF`, `BF_PIP`
+
+**`enrichment.txt`**: LDSC-CTS output with per-tissue/cell-type enrichment statistics
+
+> **Note:** Heritability results (`results/heritability/`) are only produced for per-population meta-analysis results. The across-population (`all`) meta uses EUR LD panels by default; update `params.ldsc_reference.all` in `nextflow.config` as appropriate for your study.
 
 ---
 
@@ -205,19 +249,18 @@ If you use nf-meta-gwas, please also cite the following tools:
 - **GWASLab** — He, Y. et al. (2023). GWASLab: a Python package for processing and visualizing GWAS summary statistics. *Preprint*. https://doi.org/10.1101/2023.01.15.524141
 - **LDSC** — Bulik-Sullivan, B. et al. (2015). LD Score regression distinguishes confounding from polygenicity in genome-wide association studies. *Nature Genetics*, 47, 291–295. https://doi.org/10.1038/ng.3211
 - **HyPrColoc** — Foley, C.N. et al. (2021). A fast and efficient colocalization algorithm for identifying shared genetic risk factors across multiple traits. *Nature Communications*, 12, 764. https://doi.org/10.1038/s41467-020-20885-8
-- **MAGMA** — de Leeuw, C.A. et al. (2015). MAGMA: Generalized Gene-Set Analysis of GWAS Data. *PLOS Computational Biology*, 11(4), e1004219. https://doi.org/10.1371/journal.pcbi.1004219
-- **PoPS** — Weeks, E.M. et al. (2023). Leveraging polygenic enrichments of gene features to predict genes underlying complex traits and diseases. *Nature Genetics*, 55, 1267–1276. https://doi.org/10.1038/s41588-023-01443-6
-- **FLAMES** — Zhao, Y. et al. (2024). FLAMES: fine-mapping and functional annotation of genetic loci using summary-level statistics. *Manuscript in preparation*. https://github.com/mkanai/flames
 
 ---
 
 ## To-do
 
-- [ ] Finish and validate meta-analysis output
-- [ ] ABF fine-mapping of associated loci
-- [ ] Gene prioritisation with MAGMA, PoPS, and FLAMES
-- [ ] Tissue and cell type enrichment analysis with LDSC partitioned heritability
-- [ ] Heritability estimates with LDSC
+- [x] Munge and harmonize summary statistics
+- [x] LDSC intercept correction
+- [x] Fixed-effects IVW meta-analysis (within- and across-population)
+- [x] Lead variant extraction and meta-analysis Manhattan plots
+- [x] SNP heritability estimation on meta-analysis summary statistics
+- [x] ABF credible set fine-mapping
+- [x] Tissue and cell type enrichment analysis with LDSC-CTS
 - [ ] eQTL and pQTL colocalization with HyPrColoc
 - [ ] Nextflow pipeline tests
 - [ ] Summary reports of all results
