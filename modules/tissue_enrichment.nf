@@ -17,12 +17,12 @@ process TISSUE_ENRICHMENT {
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"
-    def ldsc = params.ldsc_reference[meta.population]
+    def ldbaseline = params.ldbaseline
     """
     enrichment.py \
       --input ${sumstats} \
       --output ${prefix}.enrichment.txt \
-      --ld ${ldsc} \
+      --ld ${ldbaseline} \
       --ldcts ${params.ldcts} \
       --weights ${params.ldcts_weights}
     """
