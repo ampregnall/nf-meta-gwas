@@ -1,9 +1,9 @@
 import gwaslab as gl
 import argparse
 
-parser = argparse.ArgumentParser(description="Test gwaslab installation")
+parser = argparse.ArgumentParser(description="Extract lead variants and create Manhattan plot")
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
-parser.add_argument("--output", type=str, required=True, help="Output filenmame")
+parser.add_argument("--output", type=str, required=True, help="Output filename")
 parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
 parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
 parser.add_argument("--population", type=str, required=True, help="Population label")
@@ -12,18 +12,18 @@ args = parser.parse_args()
 
 
 sumstats = gl.Sumstats(args.input, fmt="gwaslab", build="38")
-ss.basic_check()
+sumstats.basic_check()
 
 # Extract lead vars
-lead_vars = ss.get_lead(anno=True, gtf_path=args.gtf)
+lead_vars = sumstats.get_lead(anno=True, gtf_path=args.gtf)
 var_list = lead_vars.sort_values(by="P").head(10)
 
 fig = sumstats.plot_mqq(
     skip=3,
     anno="GENENAME",
     build="38",
-    highlight=list(var_list.GENE), 
-    anno_set=list(var_list.GENE),
+    highlight=list(var_list.GENENAME),
+    anno_set=list(var_list.GENENAME),
     title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
     anno_style="expand",
     fontsize=8,

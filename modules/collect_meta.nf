@@ -6,7 +6,7 @@ process COLLECT_META_RESULTS {
         tuple val(meta), path(meta_files)
 
     output:
-        tuple val(meta), path("*.txt.gz")
+        tuple val(meta), path("*.txt.gz"), emit: sumstats
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"
