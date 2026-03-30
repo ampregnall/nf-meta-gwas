@@ -72,18 +72,19 @@ if args.type == "binary":
     sumstats.data["MAC"] = sumstats.data["MAF"] * sumstats.data["N_CASE"] * 2
 else:
     sumstats.data["MAC"] = sumstats.data["MAF"] * sumstats.data["N"] * 2
-
-sumstats.data = sumstats.data[sumstats.data["MAC"] > args.mac]
-sumstats.data["DAF"] = sumstats.data["EAF"] - sumstats.data["RAF"]
-sumstats.filter_value('abs(DAF) < 0.20', inplace=True)
-
+    
 # Create DAF plot
 fig, _ = sumstats.plot_daf(
     title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
+    threshold=0.2,
     fontsize=8,
     font_family="DejaVu Sans",
     fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
 )
+
+sumstats.data = sumstats.data[sumstats.data["MAC"] > args.mac]
+sumstats.data["DAF"] = sumstats.data["EAF"] - sumstats.data["RAF"]
+sumstats.filter_value('abs(DAF) < 0.20', inplace=True)
 
 fig.savefig(f"{args.output}-daf.png", dpi=400, bbox_inches="tight")
 fig.savefig(f"{args.output}-daf.pdf", dpi=400, bbox_inches="tight")
