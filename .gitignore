@@ -1,8 +1,12 @@
 # folders to ignore
 /.nextflow
 /results
+/logs
+/bash
 .nextflow*
 *.log*
+*.img
+.conda_cache/
 
 # singularity images
 containers/*.sif
