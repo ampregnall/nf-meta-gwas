@@ -5,7 +5,7 @@ process EXTRACT_LEAD_VARIANTS {
         { "${launchDir}/results/lead-variants/${meta.phenotype}" },
         mode: 'copy'
     )
-    memory { 16.GB + (12.GB * (task.attempt - 1)) }
+    clusterOptions = { "-R \"rusage[mem=${16000 * task.attempt}]\"" }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
 
