@@ -22,7 +22,7 @@ process TISSUE_ENRICHMENT {
     enrichment.py \
       --input ${sumstats} \
       --output ${prefix}.enrichment.txt \
-      --ld ${ldbaseline} \
+      --ldbaseline ${ldbaseline} \
       --ldcts ${params.ldcts} \
       --weights ${params.ldcts_weights}
     """
