@@ -1,7 +1,11 @@
+#!/usr/bin/env python
+
 import gwaslab as gl
 import argparse
 
-parser = argparse.ArgumentParser(description="Extract lead variants and create Manhattan plot")
+parser = argparse.ArgumentParser(
+    description="Extract lead variants and create Manhattan plot"
+)
 parser.add_argument("--input", type=str, required=True, help="Path to input file")
 parser.add_argument("--output", type=str, required=True, help="Output filename")
 parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
@@ -22,13 +26,13 @@ fig = sumstats.plot_mqq(
     skip=3,
     anno="GENENAME",
     build="38",
-    highlight=list(var_list.GENENAME),
-    anno_set=list(var_list.GENENAME),
+    highlight=list(var_list.GENE),
+    anno_set=list(var_list.GENE),
     title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
     anno_style="expand",
     fontsize=8,
     anno_fontsize=8,
-    anno_max_rows=10,  
+    anno_max_rows=10,
     anno_gtf_path=args.gtf,
     font_family="DejaVu Sans",
     fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
