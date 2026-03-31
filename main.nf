@@ -62,9 +62,11 @@ workflow {
     )
 
     // ABF fine-mapping: join collected meta sumstats with lead variants
+    // Filter out cases with no GWS hits (header-only lead variants file = 1 line)
     ABF_FINEMAPPING(
         ch_collected_meta.sumstats
             .join(ch_lead.lead_variants, by: 0)
+            .filter { meta, sumstats, leads -> leads.countLines() > 1 }
     )
 
     // Tissue and cell type enrichment on all meta-analysis results
