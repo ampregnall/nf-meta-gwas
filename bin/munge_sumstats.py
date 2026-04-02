@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import pandas as pd
 import gwaslab as gl
 
 parser = argparse.ArgumentParser(description="Test gwaslab installation")
@@ -46,15 +47,19 @@ sumstats.infer_build(verbose=True)
 if sumstats.build == "19":
     sumstats.liftover(to_build="38", from_build="19", chain_path=args.chain)
 
+n_initial = len(sumstats.data)
+
 sumstats.basic_check(
     remove=True,
     remove_dup=True,
     normalize=True,
     remove_dup_kwargs={"mode": "md", "keep": "first", "keep_col": "P"},
 )
+n_after_basic_check = len(sumstats.data)
 
 # Additional filtering
-sumstats.filter_palindromic(mode="out", inplace=True)  
+sumstats.filter_palindromic(mode="out", inplace=True)
+n_after_palindromic = len(sumstats.data)
 
 # Harmonize summary statistics
 sumstats.harmonize(
@@ -70,13 +75,32 @@ sumstats.harmonize(
 status_str = sumstats.data["STATUS"].astype(str)
 mask = ~(status_str.str[6].isin(["7", "8"]) | status_str.str[5].isin(["6"]))
 sumstats.data = sumstats.data[mask].copy()
+n_after_status = len(sumstats.data)
 
 if args.type == "binary":
     sumstats.data["MAC"] = sumstats.data["MAF"] * sumstats.data["N_CASE"] * 2
 else:
     sumstats.data["MAC"] = sumstats.data["MAF"] * sumstats.data["N"] * 2
-    
+
 sumstats.data = sumstats.data[sumstats.data["MAC"] > args.mac]
+n_after_mac = len(sumstats.data)
+
+# Save variant count tracking table
+filter_stats = pd.DataFrame([{
+    "phenotype": args.phenotype,
+    "cohort": args.cohort,
+    "population": args.population,
+    "n_initial": n_initial,
+    "n_after_basic_check": n_after_basic_check,
+    "n_removed_basic_check": n_initial - n_after_basic_check,
+    "n_after_palindromic": n_after_palindromic,
+    "n_removed_palindromic": n_after_basic_check - n_after_palindromic,
+    "n_after_status_filter": n_after_status,
+    "n_removed_status_filter": n_after_palindromic - n_after_status,
+    "n_after_mac_filter": n_after_mac,
+    "n_removed_mac_filter": n_after_status - n_after_mac,
+}])
+filter_stats.to_csv(f"{args.output}.filter_stats.txt", index=False, sep="\t")
 
 # Save results
 sumstats_out = f"{args.output}.sumstats.munged.txt.gz"

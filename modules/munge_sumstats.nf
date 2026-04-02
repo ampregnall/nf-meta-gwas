@@ -17,6 +17,7 @@ process MUNGE_SUMSTATS {
     output:
         tuple val(meta), path("*.sumstats.munged.txt.gz"), emit: sumstats_munged
         tuple val(meta), path("*.{pdf,png}"),              emit: plots
+        tuple val(meta), path("*.filter_stats.txt"),       emit: filter_stats
 
     script:
     def prefix = "${meta.phenotype}-${meta.cohort}-${meta.population}"

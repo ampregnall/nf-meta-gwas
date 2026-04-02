@@ -7,6 +7,7 @@ include { COLLECT_META_RESULTS } from "${projectDir}/modules/collect_meta.nf"
 include { EXTRACT_LEAD_VARIANTS } from "${projectDir}/modules/lead_variants.nf"
 include { HERITABILITY } from "${projectDir}/modules/heritability.nf"
 include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
+include { COLLECT_FILTER_STATS } from "${projectDir}/modules/collect_filter_stats.nf"
 include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 
 workflow {
@@ -20,6 +21,12 @@ workflow {
 
     ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats)
     ch_ldsc_out = LDSC_CORRECTION(ch_sumstats_munged.sumstats_munged)
+
+    // Gather filter stats per phenotype and publish combined file
+    ch_sumstats_munged.filter_stats
+        .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
+        .groupTuple(by: 0)
+        | COLLECT_FILTER_STATS
 
     // Gather LDSC h2 results per phenotype and publish combined file
     ch_ldsc_out.ldsc_h2

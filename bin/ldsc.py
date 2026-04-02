@@ -40,8 +40,9 @@ ldsc_df.insert(0, "phenotype", args.phenotype)
 ldsc_out = f"{args.output}.ldsc_h2.txt"
 ldsc_df.to_csv(ldsc_out, index=False, sep="\t")
 
-# Create manhattan and qq plot
-fig = sumstats.plot_mqq(
+# Create Manhattan plot
+fig_manhattan = sumstats.plot_mqq(
+    mode="m",
     skip=3,
     anno="GENENAME",
     build="38",
@@ -53,9 +54,19 @@ fig = sumstats.plot_mqq(
     font_family="DejaVu Sans",
     fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
 )
+fig_manhattan.savefig(f"{args.output}-manhattan.png", dpi=400, bbox_inches="tight")
 
-fig.savefig(f"{args.output}-manhattan-qq.png", dpi=400, bbox_inches="tight")
-fig.savefig(f"{args.output}-manhattan-qq.pdf", dpi=400, bbox_inches="tight")
+# Create QQ plot
+fig_qq = sumstats.plot_mqq(
+    mode="q",
+    skip=3,
+    build="38",
+    title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
+    fontsize=8,
+    font_family="DejaVu Sans",
+    fig_kwargs={"figsize": (5, 5), "dpi": 400},
+)
+fig_qq.savefig(f"{args.output}-qq.png", dpi=400, bbox_inches="tight")
 
 # Save sumstats results
 sumstats_out = f"{args.output}.sumstats.processed.txt.gz"
