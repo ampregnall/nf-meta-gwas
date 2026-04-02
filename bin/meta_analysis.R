@@ -219,7 +219,10 @@ if (args$trait_type == "binary") {
 
 meta_results <- meta_results |>
   rename(BETA = B) |> 
-  mutate(SNPID = glue("{CHR}:{POS}:{NEA}:{EA}")) |> 
+  mutate(
+    SNPID = glue("{CHR}:{POS}:{NEA}:{EA}"), 
+    MAF = pmin(EAF, 1 - EAF)
+    ) |> 
   select(SNPID, everything())
 
 # -----------------------------------------------------------------------------
