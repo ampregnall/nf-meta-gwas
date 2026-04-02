@@ -5,7 +5,7 @@ process TISSUE_ENRICHMENT {
         { "${launchDir}/results/enrichment/${meta.phenotype}" },
         mode: 'copy'
     )
-    memory { 16.GB + (12.GB * (task.attempt - 1)) }
+    clusterOptions = { "-R \"rusage[mem=${24000 * task.attempt}]\"" }
     maxRetries 4
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
 
