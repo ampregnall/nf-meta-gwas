@@ -14,7 +14,6 @@ process EXTRACT_LEAD_VARIANTS {
 
     output:
         tuple val(meta), path("*.lead.variants.txt"), emit: lead_variants
-        tuple val(meta), path("*.{pdf,png}"),         emit: plots
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"

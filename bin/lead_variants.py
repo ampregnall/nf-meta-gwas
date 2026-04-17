@@ -33,51 +33,5 @@ if lead_vars.empty:
         base_cols += ["N_CASE", "N_CONTROL"]
     base_cols += ["LOCATION", "GENE"]
     pd.DataFrame(columns=base_cols).to_csv(lead_out, sep="\t", index=False)
-
-    # Generate unannotated Manhattan plot (no GWS hits to highlight)
-    fig_manhattan = sumstats.plot_mqq(
-        mode="m",
-        skip=3,
-        build="38",
-        title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
-        fontsize=8,
-        anno_fontsize=8,
-        font_family="DejaVu Sans",
-        fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
-    )
 else:
     lead_vars.to_csv(lead_out, sep="\t", index=False)
-    var_list = lead_vars.sort_values(by="P").head(10)
-
-    # Generate annotated Manhattan plot highlighting top 10 lead variants
-    fig_manhattan = sumstats.plot_mqq(
-        mode="m",
-        skip=3,
-        anno="GENENAME",
-        build="38",
-        highlight=list(var_list.GENE),
-        anno_set=list(var_list.GENE),
-        title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
-        anno_style="expand",
-        fontsize=8,
-        anno_fontsize=8,
-        anno_max_rows=10,
-        anno_gtf_path=args.gtf,
-        font_family="DejaVu Sans",
-        fig_kwargs={"figsize": (7.5, 5), "dpi": 400},
-    )
-
-# QQ plot (same regardless of GWS hits)
-fig_qq = sumstats.plot_mqq(
-    mode="q",
-    skip=3,
-    build="38",
-    title=f"{args.cohort} {args.phenotype} {args.population}".upper(),
-    fontsize=8,
-    font_family="DejaVu Sans",
-    fig_kwargs={"figsize": (5, 5), "dpi": 400},
-)
-
-# Save results
-fig_manhattan.savefig(f"{args.output}-manhattan.png", dpi=400, bbox_inches="tight")
-fig_qq.savefig(f"{args.output}-qq.png", dpi=400, bbox_inches="tight")
