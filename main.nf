@@ -13,10 +13,10 @@ include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
 
-    ch_sumstats = ch_input.map { phenotype, trait_type, population, cohort ->
+    ch_sumstats = ch_input.map { phenotype, trait_type, population, cohort, col_overrides ->
             def input_file = file("data/raw/${phenotype}/${cohort}-${phenotype}-${population}.sumstats.txt.gz")
             if (!input_file.exists()) error "Input file not found: ${input_file}"
-            [[phenotype: phenotype, type: trait_type, population: population, cohort: cohort], input_file]
+            [[phenotype: phenotype, type: trait_type, population: population, cohort: cohort, col_overrides: col_overrides ?: ""], input_file]
         }
 
     ch_sumstats_munged = MUNGE_SUMSTATS(ch_sumstats)

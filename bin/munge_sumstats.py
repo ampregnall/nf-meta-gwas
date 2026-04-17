@@ -37,10 +37,50 @@ parser.add_argument("--threads", type=int, required=True, help="Number of thread
 parser.add_argument("--phenotype", type=str, required=True, help="Phenotype name")
 parser.add_argument("--cohort", type=str, required=True, help="Cohort name")
 parser.add_argument("--population", type=str, required=True, help="Population label")
+parser.add_argument(
+    "--col_overrides",
+    type=str,
+    required=False,
+    default=None,
+    help="Comma-separated key=value column name overrides (e.g. snpid=rsid,chrom=chr,pos=bp,ea=A1,nea=A2,beta=b,se=se,eaf=af). "
+         "When provided, all 7 required keys (chrom, pos, ea, nea, beta, se, eaf) must be included.",
+)
 args = parser.parse_args()
 
+REQUIRED_OVERRIDE_KEYS = {"chrom", "pos", "ea", "nea", "beta", "se", "eaf"}
+ALLOWED_OVERRIDE_KEYS = REQUIRED_OVERRIDE_KEYS | {
+    "snpid", "rsid", "p", "n", "n_case", "n_con", "or", "z", "info", "i2", "phet"
+}
 
-sumstats = gl.Sumstats(args.input, fmt="gwaslab")
+
+def parse_col_overrides(override_str):
+    if not override_str or not override_str.strip():
+        return {}
+    overrides = {}
+    for pair in (p.strip() for p in override_str.split(",")):
+        if "=" not in pair:
+            raise ValueError(f"Invalid col_overrides entry (missing '='): '{pair}'")
+        key, _, value = pair.partition("=")
+        key = key.strip().lower()
+        if key not in ALLOWED_OVERRIDE_KEYS:
+            raise ValueError(
+                f"Unknown override key '{key}'. Allowed keys: {sorted(ALLOWED_OVERRIDE_KEYS)}"
+            )
+        overrides[key] = value.strip()
+    missing = REQUIRED_OVERRIDE_KEYS - overrides.keys()
+    if missing:
+        raise ValueError(
+            f"col_overrides is missing required keys: {sorted(missing)}"
+        )
+    return overrides
+
+
+col_overrides = parse_col_overrides(args.col_overrides)
+
+if col_overrides:
+    sumstats = gl.Sumstats(args.input, **col_overrides)
+else:
+    sumstats = gl.Sumstats(args.input, fmt="gwaslab")
 sumstats.infer_build(verbose=True)
 
 # Liftover if statistics are on hg19

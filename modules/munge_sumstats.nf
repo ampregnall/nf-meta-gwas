@@ -22,6 +22,7 @@ process MUNGE_SUMSTATS {
     def prefix = "${meta.phenotype}-${meta.cohort}-${meta.population}"
     def popvcf = params.population_vcf[meta.population]
     def ldsc = params.ldsc_reference[meta.population]
+    def override_arg = meta.col_overrides ? "--col_overrides '${meta.col_overrides}'" : ""
     """
     munge_sumstats.py \
       --input ${sumstats} \
@@ -36,6 +37,7 @@ process MUNGE_SUMSTATS {
       --threads ${task.cpus} \
       --phenotype ${meta.phenotype} \
       --cohort ${meta.cohort} \
-      --population ${meta.population}
+      --population ${meta.population} \
+      ${override_arg}
     """
 }

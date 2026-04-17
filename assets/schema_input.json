@@ -24,6 +24,12 @@
             "cohort" : {
                 "type" : "string",
                 "errorMessage" : "Cohort is required"
+            },
+            "col_overrides": {
+                "type": "string",
+                "description": "Optional column name overrides as comma-separated key=value pairs (e.g. snpid=rsid,chrom=chr,pos=bp,ea=A1,nea=A2,beta=b,se=se,eaf=af). When provided, all 7 required keys (chrom, pos, ea, nea, beta, se, eaf) must be present.",
+                "pattern": "^$|^[a-zA-Z_][a-zA-Z0-9_]*=[^,=]+(,[a-zA-Z_][a-zA-Z0-9_]*=[^,=]+)*$",
+                "errorMessage": "col_overrides must be empty or formatted as key=value pairs separated by commas"
             }
         },
         "required": ["phenotype", "trait_type", "population", "cohort"]
