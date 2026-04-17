@@ -7,9 +7,13 @@ on:
     paths:
       - 'containers/gwaslab/**'
       - 'containers/meta-analysis/**'
+      - 'containers/magma/**'
+      - 'containers/pops/**'
     tags:
       - 'gwaslab-v*'
       - 'meta-analysis-v*'
+      - 'magma-v*'
+      - 'pops-v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -93,6 +97,80 @@ jobs:
         with:
           context: containers/meta-analysis
           file: containers/meta-analysis/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  magma:
+    name: magma container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/magma
+          tags: |
+            type=match,pattern=magma-v(.*),group=1
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/magma-v') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: containers/magma
+          file: containers/magma/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  pops:
+    name: pops container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/pops
+          tags: |
+            type=match,pattern=pops-v(.*),group=1
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/pops-v') }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6.15.0
+        with:
+          context: containers/pops
+          file: containers/pops/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
