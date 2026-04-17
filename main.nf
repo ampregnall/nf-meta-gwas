@@ -9,6 +9,7 @@ include { HERITABILITY } from "${projectDir}/modules/heritability.nf"
 include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
 include { COLLECT_FILTER_STATS } from "${projectDir}/modules/collect_filter_stats.nf"
 include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
+include { COLLECT_LEAD_VARIANTS } from "${projectDir}/modules/collect_lead_variants.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -62,6 +63,12 @@ workflow {
     )
 
     ch_lead = EXTRACT_LEAD_VARIANTS(ch_collected_meta.sumstats)
+
+    // Aggregate lead variants across all populations per phenotype, cluster into loci, flag population-specific hits
+    ch_lead.lead_variants
+        .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
+        .groupTuple(by: 0)
+        | COLLECT_LEAD_VARIANTS
 
     // Heritability estimation on per-population meta results only (ldsc_reference is per-population)
     HERITABILITY(
