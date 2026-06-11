@@ -10,6 +10,8 @@ include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
 include { COLLECT_FILTER_STATS } from "${projectDir}/modules/collect_filter_stats.nf"
 include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 include { COLLECT_LEAD_VARIANTS } from "${projectDir}/modules/collect_lead_variants.nf"
+include { PLOT_GWAS as PLOT_INPUT_GWAS } from "${projectDir}/modules/plot_gwas.nf"
+include { PLOT_GWAS as PLOT_META_GWAS } from "${projectDir}/modules/plot_gwas.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -85,4 +87,10 @@ workflow {
 
     // Tissue and cell type enrichment on all meta-analysis results
     TISSUE_ENRICHMENT(ch_collected_meta.sumstats)
+
+    // Manhattan and QQ plots for each input GWAS (post-munging)
+    PLOT_INPUT_GWAS(ch_sumstats_munged.sumstats_munged)
+
+    // Manhattan and QQ plots for each meta-analysis result
+    PLOT_META_GWAS(ch_collected_meta.sumstats)
 }

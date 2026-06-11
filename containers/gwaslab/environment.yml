@@ -26,3 +26,4 @@ dependencies:
     - gwaslab==4.1.4
     - adjustText>=0.7.3,<=0.8
     - sumstats-liftover==1.1.0
+    - plotnine>=0.12
