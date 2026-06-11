@@ -1,12 +1,21 @@
 # nf-meta-gwas
 
-A Nextflow pipeline for multi-population GWAS summary statistics processing, meta-analysis, and downstream functional interpretation including fine-mapping, heritability estimation, and tissue/cell type enrichment analysis.
+A Nextflow pipeline for multi-population GWAS summary statistics processing, meta-analysis, and downstream functional interpretation including fine-mapping, gene prioritisation, heritability estimation, and tissue/cell type enrichment analysis.
 
 ## Introduction
 
-**nf-meta-gwas** takes raw GWAS summary statistics from one or more cohorts and populations, harmonises them to a common reference genome (GRCh38), performs LD-score regression (LDSC) intercept correction for genomic inflation, and runs fixed-effects inverse-variance weighted (IVW) meta-analysis within and across populations. Downstream modules perform lead variant extraction, SNP heritability estimation, Approximate Bayes Factor (ABF) credible set fine-mapping, and tissue/cell type enrichment analysis via LDSC-CTS.
+**nf-meta-gwas** takes raw GWAS summary statistics from one or more cohorts and populations, harmonises them to a common reference genome (GRCh38), performs LD-score regression (LDSC) intercept correction for genomic inflation, and runs fixed-effects inverse-variance weighted (IVW) meta-analysis within and across populations.
 
-The pipeline is written in [Nextflow](https://www.nextflow.io/) and uses [Apptainer](https://apptainer.org/) (formerly Singularity) containers to ensure reproducibility. All compute-intensive steps are designed to run on an HPC cluster via the LSF scheduler, though a local execution profile is also provided.
+Downstream modules cover the full post-GWAS functional interpretation workflow:
+
+- **Visualisation** — Manhattan and QQ plots for every input GWAS and meta-analysis result, with ggplot-style styling, per-chromosome significance colouring, and nearest-gene annotation for genome-wide significant loci
+- **Lead variant extraction** — genome-wide significant loci identified and aggregated across populations
+- **ABF fine-mapping** — Approximate Bayes Factor 99% credible sets per locus
+- **Gene prioritisation** — MAGMA gene-level analysis, MAGMA tissue expression analysis (GTEx v8), PoPS polygenic priority scores, and FLAMES integrative gene scoring
+- **Heritability estimation** — SNP heritability on meta-analysis summary statistics
+- **Tissue/cell type enrichment** — LDSC-CTS partitioned heritability
+
+The pipeline is written in [Nextflow](https://www.nextflow.io/) and uses [Apptainer](https://apptainer.org/) containers to ensure reproducibility. All compute-intensive steps are designed to run on an HPC cluster via the LSF scheduler.
 
 ### Citation
 
@@ -29,16 +38,16 @@ Raw summary statistics (per cohort × population)
 │  • Harmonize against reference genome, assign rsIDs         │
 │  • Allele frequency inference from population VCF           │
 │  • MAC filter                                               │
-│  • DAF plot (PDF + PNG)                                     │
 └─────────────────────────────────────────────────────────────┘
         │
+        ├──────────────────────────────────────────────────────────►  PLOT_INPUT_GWAS
+        │                                                              Manhattan + QQ per input GWAS
         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  LDSC_CORRECTION                                            │
 │  • Filter to HapMap3 SNPs                                   │
 │  • Estimate h² and LDSC intercept                           │
 │  • Correct SE/Z/P if intercept > 1                          │
-│  • Manhattan + QQ plot (PDF + PNG)                          │
 │  • Export per-cohort h² results                             │
 └─────────────────────────────────────────────────────────────┘
         │
@@ -48,24 +57,40 @@ Raw summary statistics (per cohort × population)
 │  • Fixed-effects IVW meta-analysis                          │
 │  • Within-population and across-population                  │
 │  • Cochran's Q heterogeneity statistics                     │
+│  • MLOG10P computed natively from Z (handles underflow)     │
 └─────────────────────────────────────────────────────────────┘
         │
-        ├──────────────────────────┬─────────────────────────┐
-        ▼                          ▼                         ▼
-┌───────────────────┐  ┌───────────────────────┐  ┌─────────────────────┐
-│ EXTRACT_LEAD_     │  │ HERITABILITY          │  │ TISSUE_ENRICHMENT   │
-│ VARIANTS          │  │ • LDSC h² on meta     │  │ • LDSC-CTS          │
-│ • genome-wide     │  │   sumstats            │  │   partitioned h²    │
-│   significant     │  │ • per-population      │  │ • tissue and cell   │
-│   loci            │  │   only                │  │   type enrichment   │
-│ • Manhattan plot  │  └───────────────────────┘  └─────────────────────┘
-└───────────────────┘
-        │
-        ▼
+        ├──────────────┬──────────────┬──────────────┬──────────────────────────────┐
+        ▼              ▼              ▼              ▼                              ▼
+┌──────────────┐ ┌──────────┐ ┌──────────────┐ ┌─────────────────┐   ┌────────────────────┐
+│ EXTRACT_LEAD │ │HERITABI- │ │ TISSUE_      │ │ PLOT_META_GWAS  │   │ PREPARE_MAGMA_INPUT│
+│ _VARIANTS    │ │LITY      │ │ ENRICHMENT   │ │ Manhattan + QQ  │   │ → MAGMA_GENE       │
+│ • GWS loci   │ │ • LDSC   │ │ • LDSC-CTS   │ │ per meta result │   │   ├─ MAGMA_TISSUE  │
+│ • nearest    │ │   h² on  │ │ • tissue and │ │                 │   │   │  (GTEx v8)      │
+│   gene       │ │   meta   │ │   cell type  │ └─────────────────┘   │   └─ POPS          │
+└──────┬───────┘ └──────────┘ └──────────────┘                       └────────┬───────────┘
+       │                                                                        │
+       ▼                                                                        │
+┌─────────────────────────────────────────────────────────────┐                │
+│  ABF_FINEMAPPING  (GWS loci only)                           │                │
+│  • 99% ABF credible sets per locus                          │                │
+│  • SNPID format: CHR:POS:NEA:EA                             │                │
+└──────────────────────────┬──────────────────────────────────┘                │
+                           │                                                    │
+                           ▼                                                    │
+┌─────────────────────────────────────────────────────────────┐                │
+│  PREPARE_FLAMES_INPUTS                                      │                │
+│  • Per-locus credset files (SNPID flipped to CHR:POS:EA:NEA)│                │
+│  • Genomic locus file (±500 kb windows)                     │                │
+│  • FLAMES index file (relative paths)                       │                │
+└──────────────────────────┬──────────────────────────────────┘                │
+                           │◄──────────────────────────────────────────────────┘
+                           │  (join: MAGMA genes.out, MAGMA gsa.out, PoPS preds)
+                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  ABF_FINEMAPPING                                            │
-│  • Extract variants within 500 kb of each lead locus        │
-│  • Approximate Bayes Factor credible sets (99%)             │
+│  FLAMES                                                     │
+│  • Annotate loci with SNP-to-gene evidence, MAGMA-Z, PoPS  │
+│  • Score loci with XGBoost + PoPS model                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -150,19 +175,27 @@ Files are expected in the **gwaslab** input format (tab-delimited, gzip-compress
 
 ### Reference files
 
-The following reference files are required and configured in `nextflow.config`. Default paths are set for the Voltron HPC environment:
+The following reference files are required and configured in `nextflow.config`. Voltron HPC paths are pre-filled where available; MAGMA, PoPS, and FLAMES paths are placeholders that must be set before running those steps.
 
 | Parameter | Description |
 |-----------|-------------|
 | `params.fasta` | GRCh38 reference genome FASTA |
 | `params.dbsnp` | dbSNP VCF for rsID assignment (GCF_000001405.40) |
 | `params.chain` | LiftOver chain file (hg19 → hg38) |
-| `params.gtf` | Ensembl GTF for gene annotation |
+| `params.gtf` | Ensembl GTF for gene annotation (Manhattan plot labelling) |
 | `params.population_vcf` | Per-population 1000 Genomes VCF (hg38, 30×) for allele frequency inference |
-| `params.ldsc_reference` | Per-population Pan-UKBB LD score reference panels (used for LDSC correction, heritability, and enrichment) |
+| `params.ldsc_reference` | Per-population Pan-UKBB LD score reference panels |
 | `params.ldcts` | Cell-type LD score file for LDSC-CTS enrichment analysis |
-| `params.ldcts_weights` | LD score weights for LDSC-CTS (typically HapMap3, no MHC) |
+| `params.ldcts_weights` | LD score weights for LDSC-CTS (HapMap3, no MHC) |
 | `params.ldbaseline` | Baseline LD score annotations for LDSC-CTS |
+| `params.magma_bfile` | MAGMA 1000G LD reference bfile prefix (`.bed/.bim/.fam`) |
+| `params.magma_gene_annot` | MAGMA pre-built gene annotation file (GRCh38 Ensembl) |
+| `params.magma_gtex_covar` | GTEx v8 tissue-average expression matrix for MAGMA tissue analysis |
+| `params.pops_gene_annot` | PoPS gene annotation file |
+| `params.pops_feature_prefix` | PoPS munged feature matrix prefix |
+| `params.pops_num_feature_chunks` | Number of PoPS feature chunks (default: `116`) |
+| `params.pops_control_features` | PoPS control features file |
+| `params.flames_annotation_data` | FLAMES annotation data directory |
 
 ---
 
@@ -180,6 +213,14 @@ The following reference files are required and configured in `nextflow.config`. 
 | `--ldcts` | see config | Cell-type LD scores for LDSC-CTS |
 | `--ldcts_weights` | see config | LD score weights for LDSC-CTS |
 | `--ldbaseline` | see config | Baseline LD score annotations for LDSC-CTS |
+| `--magma_bfile` | `null` | MAGMA LD reference bfile prefix |
+| `--magma_gene_annot` | `null` | MAGMA gene annotation file |
+| `--magma_gtex_covar` | `null` | GTEx v8 covariate matrix for MAGMA tissue analysis |
+| `--pops_gene_annot` | `null` | PoPS gene annotation |
+| `--pops_feature_prefix` | `null` | PoPS feature matrix prefix |
+| `--pops_num_feature_chunks` | `116` | Number of PoPS feature chunks |
+| `--pops_control_features` | `null` | PoPS control features file |
+| `--flames_annotation_data` | `null` | FLAMES annotation data directory |
 
 ---
 
@@ -187,18 +228,18 @@ The following reference files are required and configured in `nextflow.config`. 
 
 ```
 results/
-├── daf/
-│   └── {phenotype}/
-│       └── {cohort}-{phenotype}-{population}-daf.{pdf,png}
-├── manhattan-qq/
-│   └── {phenotype}/
-│       └── {cohort}-{phenotype}-{population}-manhattan-qq.{pdf,png}
+├── plots/
+│   ├── manhattan/
+│   │   └── {phenotype}/
+│   │       └── {prefix}.manhattan.{png,pdf}
+│   └── qq/
+│       └── {phenotype}/
+│           └── {prefix}.qq.{png,pdf}
 ├── ldsc/
 │   └── {phenotype}/
 │       └── {phenotype}.ldsc_h2.txt
 ├── lead-variants/
 │   └── {phenotype}/
-│       ├── {phenotype}-{population}-manhattan-qq.{pdf,png}
 │       └── {phenotype}-{population}.lead.variants.txt
 ├── heritability/
 │   └── {phenotype}/
@@ -206,30 +247,52 @@ results/
 ├── finemapping/
 │   └── {phenotype}/
 │       └── {phenotype}-{population}.credset.txt
-└── enrichment/
+├── enrichment/
+│   └── {phenotype}/
+│       └── {phenotype}-{population}.enrichment.txt
+├── magma/
+│   └── {phenotype}/
+│       ├── {phenotype}-{population}.genes.out
+│       ├── {phenotype}-{population}.genes.raw
+│       └── {phenotype}-{population}-gtex.gsa.out
+├── pops/
+│   └── {phenotype}/
+│       └── {phenotype}-{population}-pops.preds
+└── flames/
     └── {phenotype}/
-        └── {phenotype}-{population}.enrichment.txt
+        ├── {phenotype}-{population}.genomic-locus.txt
+        ├── {phenotype}-{population}.index.txt
+        ├── flames-annotate/
+        │   └── FLAMES_annotated_{locus}.txt
+        └── flames-scores/
 
 data/
-├── sumstats-processed/
-│   └── {phenotype}/
-│       └── {cohort}-{phenotype}-{population}.sumstats.processed.txt.gz
 └── meta-analysis/
     └── {phenotype}/
         └── {phenotype}-{population}.txt.gz
 ```
 
-**`ldsc_h2.txt`** columns: `phenotype`, `cohort`, `population`, `h2`, `h2_se`, `Intercept`, `Intercept_se`, `Lambda_GC`, `Mean_Chi2`, `Ratio`, `Ratio_se`
+### Key output formats
 
-**Meta-analysis output** columns: `SNPID`, `CHR`, `POS`, `rsID`, `EA`, `NEA`, `BETA`, `SE`, `P`, `Z`, `EAF`, `N_CONTRIBUTIONS`, `N` (+ `N_CASE`, `N_CONTROL` for binary traits), `Q`, `Q_DF`, `Q_PVAL`, `I2`
+**Manhattan plots** — ggplot-style (`theme_classic`), 8×5 inches, 300 dpi, PNG and PDF. Odd chromosomes: `#045ea7`; even chromosomes: `#82afd3`; chromosomes with ≥1 genome-wide significant variant: `#990000`. The most significant GWS variant per chromosome is annotated with the nearest Ensembl gene name. No annotations are added when no variants reach the genome-wide significance threshold (5×10⁻⁸). `-log₁₀(p)` is computed natively from BETA/SE using the log-scale survival function to handle p-value underflow.
 
-**`lead.variants.txt`**: genome-wide significant loci annotated with nearest gene (gwaslab format)
+**QQ plots** — ggplot-style, observed vs expected `-log₁₀(p)`. Points below `-log₁₀(p) = 1` are downsampled to 5% for plotting efficiency while preserving correct expected quantiles.
 
-**`credset.txt`** columns: `SNPID`, `rsID`, `LOCUS`, `CHR`, `POS`, `EA`, `NEA`, `BETA`, `SE`, `NEAREST_GENE`, `BF`, `BF_PIP`
+**Meta-analysis output** (`data/meta-analysis/`) columns: `SNPID`, `CHR`, `POS`, `rsID`, `EA`, `NEA`, `BETA`, `SE`, `P`, `Z`, `MLOG10P`, `EAF`, `N_CONTRIBUTIONS`, `N` (+ `N_CASE`, `N_CONTROL` for binary traits), `Q`, `Q_DF`, `Q_PVAL`, `I2`, `MAF`. The `MLOG10P` column is computed natively from the Z-score using `pnorm(|Z|, lower.tail=FALSE, log.p=TRUE)` to avoid floating-point underflow for highly significant loci.
 
-**`enrichment.txt`**: LDSC-CTS output with per-tissue/cell-type enrichment statistics
+**`lead.variants.txt`** — genome-wide significant loci annotated with nearest gene (gwaslab format)
 
-> **Note:** Heritability results (`results/heritability/`) are only produced for per-population meta-analysis results. The across-population (`all`) meta uses EUR LD panels by default; update `params.ldsc_reference.all` in `nextflow.config` as appropriate for your study.
+**`credset.txt`** columns: `SNPID` (CHR:POS:NEA:EA), `rsID`, `LOCUS`, `CHR`, `POS`, `EA`, `NEA`, `BETA`, `SE`, `NEAREST_GENE`, `BF`, `BF_PIP`
+
+**`{phenotype}-{population}-pops.preds`** — per-gene PoPS scores
+
+**`FLAMES_annotated_{locus}.txt`** — per-locus SNP-to-gene annotation table incorporating MAGMA-Z, PoPS scores, and functional evidence
+
+**`flames-scores/`** — final FLAMES XGBoost gene prioritisation scores per locus
+
+> **Note:** Heritability results are only produced for per-population meta-analysis results. The across-population (`all`) meta uses EUR LD panels by default; update `params.ldsc_reference.all` in `nextflow.config` as appropriate for your study.
+
+> **Note:** MAGMA, PoPS, and FLAMES run on all meta-analysis outputs. FLAMES additionally requires genome-wide significant loci; phenotype-population combinations without GWS hits are automatically skipped.
 
 ---
 
@@ -242,12 +305,29 @@ data/
 
 ---
 
+## Containers
+
+All containers are built automatically via GitHub Actions on push to `main` or when a versioned tag (`{tool}-v*`) is pushed.
+
+| Container | Image | Description |
+|-----------|-------|-------------|
+| gwaslab | `ghcr.io/ampregnall/nf-meta-gwas/gwaslab:latest` | GWASLab, bcftools, tabix, plotnine — munging, harmonization, plotting |
+| meta-analysis | `ghcr.io/ampregnall/nf-meta-gwas/meta-analysis:latest` | R with tidyverse, arrow, box — meta-analysis, fine-mapping, FLAMES input prep |
+| magma | `ghcr.io/ampregnall/nf-meta-gwas/magma:latest` | MAGMA v1.10 static binary + pandas |
+| pops | `ghcr.io/ampregnall/nf-meta-gwas/pops:latest` | PoPS pinned to FinucaneLab/pops@76eb86c |
+| flames | `ghcr.io/ampregnall/nf-meta-gwas/flames:latest` | FLAMES pinned to ampregnall/FLAMES@2008304 |
+
+---
+
 ## References
 
 If you use nf-meta-gwas, please also cite the following tools:
 
 - **GWASLab** — He, Y. et al. (2023). GWASLab: a Python package for processing and visualizing GWAS summary statistics. *Preprint*. https://doi.org/10.1101/2023.01.15.524141
 - **LDSC** — Bulik-Sullivan, B. et al. (2015). LD Score regression distinguishes confounding from polygenicity in genome-wide association studies. *Nature Genetics*, 47, 291–295. https://doi.org/10.1038/ng.3211
+- **MAGMA** — de Leeuw, C.A. et al. (2015). MAGMA: Generalized gene-set analysis of GWAS data. *PLOS Computational Biology*, 11, e1004219. https://doi.org/10.1371/journal.pcbi.1004219
+- **PoPS** — Weeks, E.M. et al. (2023). Leveraging polygenic enrichments of gene features to predict genes underlying complex traits and diseases. *Nature Genetics*, 55, 1267–1276. https://doi.org/10.1038/s41588-023-01443-6
+- **FLAMES** — Ulirsch, J.C. et al. (2021). Interrogation of human hematopoiesis at single-cell and single-variant resolution. *Nature Genetics*, 51, 683–693. https://doi.org/10.1038/s41588-019-0362-6
 - **HyPrColoc** — Foley, C.N. et al. (2021). A fast and efficient colocalization algorithm for identifying shared genetic risk factors across multiple traits. *Nature Communications*, 12, 764. https://doi.org/10.1038/s41467-020-20885-8
 
 ---
@@ -257,10 +337,14 @@ If you use nf-meta-gwas, please also cite the following tools:
 - [x] Munge and harmonize summary statistics
 - [x] LDSC intercept correction
 - [x] Fixed-effects IVW meta-analysis (within- and across-population)
-- [x] Lead variant extraction and meta-analysis Manhattan plots
+- [x] Lead variant extraction
+- [x] Manhattan and QQ plots for all input and meta-analysis GWAS
 - [x] SNP heritability estimation on meta-analysis summary statistics
 - [x] ABF credible set fine-mapping
 - [x] Tissue and cell type enrichment analysis with LDSC-CTS
+- [x] MAGMA gene-level and tissue expression analysis
+- [x] PoPS polygenic priority scores
+- [x] FLAMES integrative gene prioritisation
 - [ ] eQTL and pQTL colocalization with HyPrColoc
 - [ ] Nextflow pipeline tests
 - [ ] Summary reports of all results
