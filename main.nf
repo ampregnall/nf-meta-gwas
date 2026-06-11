@@ -10,8 +10,14 @@ include { ABF_FINEMAPPING } from "${projectDir}/modules/abf_finemapping.nf"
 include { COLLECT_FILTER_STATS } from "${projectDir}/modules/collect_filter_stats.nf"
 include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 include { COLLECT_LEAD_VARIANTS } from "${projectDir}/modules/collect_lead_variants.nf"
-include { PLOT_GWAS as PLOT_INPUT_GWAS } from "${projectDir}/modules/plot_gwas.nf"
-include { PLOT_GWAS as PLOT_META_GWAS } from "${projectDir}/modules/plot_gwas.nf"
+include { PLOT_GWAS as PLOT_INPUT_GWAS  } from "${projectDir}/modules/plot_gwas.nf"
+include { PLOT_GWAS as PLOT_META_GWAS  } from "${projectDir}/modules/plot_gwas.nf"
+include { PREPARE_MAGMA_INPUT          } from "${projectDir}/modules/prepare_magma_input.nf"
+include { MAGMA_GENE                   } from "${projectDir}/modules/magma_gene.nf"
+include { MAGMA_TISSUE                 } from "${projectDir}/modules/magma_tissue.nf"
+include { POPS                         } from "${projectDir}/modules/pops.nf"
+include { PREPARE_FLAMES_INPUTS        } from "${projectDir}/modules/prepare_flames_inputs.nf"
+include { FLAMES                       } from "${projectDir}/modules/flames.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -79,7 +85,7 @@ workflow {
 
     // ABF fine-mapping: join collected meta sumstats with lead variants
     // Filter out cases with no GWS hits (header-only lead variants file = 1 line)
-    ABF_FINEMAPPING(
+    ch_abf = ABF_FINEMAPPING(
         ch_collected_meta.sumstats
             .join(ch_lead.lead_variants, by: 0)
             .filter { meta, sumstats, leads -> leads.countLines() > 1 }
@@ -93,4 +99,31 @@ workflow {
 
     // Manhattan and QQ plots for each meta-analysis result
     PLOT_META_GWAS(ch_collected_meta.sumstats)
+
+    // ---------------------------------------------------------------------------
+    // MAGMA / PoPS / FLAMES gene-prioritisation pipeline
+    // MAGMA and PoPS run on all meta-analysis outputs regardless of GWS status.
+    // FLAMES runs only on phenotype-population combinations with GWS hits
+    // (naturally gated by the ABF_FINEMAPPING output).
+    // ---------------------------------------------------------------------------
+
+    ch_magma_input = PREPARE_MAGMA_INPUT(ch_collected_meta.sumstats)
+
+    ch_magma = MAGMA_GENE(ch_magma_input.magma_input)
+
+    // MAGMA tissue expression and PoPS both branch from the genes.raw output
+    ch_magma_tissue = MAGMA_TISSUE(ch_magma.genes_raw)
+    ch_pops         = POPS(ch_magma.genes_raw)
+
+    // Prepare FLAMES-specific inputs (per-locus credset files, locus file, index)
+    // from the ABF fine-mapping credset — only exists for GWS cases
+    ch_flames_prep = PREPARE_FLAMES_INPUTS(ch_abf.credset)
+
+    // Join all FLAMES inputs by phenotype+population and run
+    ch_for_flames = ch_flames_prep.flames_inputs
+        .join(ch_pops.pops_preds,        by: 0)
+        .join(ch_magma.genes_out,        by: 0)
+        .join(ch_magma_tissue.gsa_out,   by: 0)
+
+    FLAMES(ch_for_flames)
 }

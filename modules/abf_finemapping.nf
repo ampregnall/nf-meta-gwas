@@ -13,7 +13,7 @@ process ABF_FINEMAPPING {
         tuple val(meta), path(sumstats), path(lead_variants)
 
     output:
-        tuple val(meta), path("*.credset.txt")
+        tuple val(meta), path("*.credset.txt"), emit: credset
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"
