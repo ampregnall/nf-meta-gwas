@@ -156,6 +156,7 @@ meta_results <- ds |>
   mutate(
     Z = B / SE,
     P = 2 * stats::pnorm(-abs(Z)),
+    MLOG10P = -log10(2) - stats::pnorm(abs(Z), lower.tail = FALSE, log.p = TRUE) / log(10),
     # Cochran's Q heterogeneity
     Q = WB2 - (B_w^2) / W,
     Q_DF = pmax(N_CONTRIBUTIONS - 1L, 0L),
@@ -193,7 +194,8 @@ if (args$trait_type == "binary") {
       Q,
       Q_DF,
       Q_PVAL,
-      I2
+      I2,
+      MLOG10P
     )
 } else {
   meta_results <- meta_results |>
@@ -213,7 +215,8 @@ if (args$trait_type == "binary") {
       Q,
       Q_DF,
       Q_PVAL,
-      I2
+      I2,
+      MLOG10P
     )
 }
 
