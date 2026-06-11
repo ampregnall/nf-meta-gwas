@@ -41,7 +41,7 @@ def mlog10p_from_z(beta, se):
 # ---------------------------------------------------------------------------
 
 def load_sumstats(path):
-    keep = {"SNPID", "rsID", "CHR", "POS", "BETA", "SE", "P", "Z"}
+    keep = {"SNPID", "rsID", "CHR", "POS", "BETA", "SE", "P", "Z", "MLOG10P"}
     df = pd.read_csv(
         path, sep="\t", compression="gzip",
         usecols=lambda c: c in keep,
@@ -59,15 +59,19 @@ def load_sumstats(path):
 
 def compute_mlog10p(df):
     """
-    Primary: compute -log10(p) from BETA/SE (handles underflow, issue #12).
-    Fallback to stored P column for any row with non-finite result.
+    Use pre-computed MLOG10P column when present (meta-analysis output).
+    Otherwise compute from BETA/SE via log-scale logsf to handle underflow
+    (issue #12), with a final fallback to stored P for any non-finite results.
     """
-    vals = mlog10p_from_z(df["BETA"].values, df["SE"].values)
-    if "P" in df.columns:
-        p_stored = df["P"].values.astype(float)
-        fallback = -np.log10(np.clip(p_stored, a_min=np.finfo(float).tiny, a_max=None))
-        bad = ~np.isfinite(vals)
-        vals[bad] = fallback[bad]
+    if "MLOG10P" in df.columns:
+        vals = df["MLOG10P"].values.astype(float)
+    else:
+        vals = mlog10p_from_z(df["BETA"].values, df["SE"].values)
+        if "P" in df.columns:
+            p_stored = df["P"].values.astype(float)
+            fallback = -np.log10(np.clip(p_stored, a_min=np.finfo(float).tiny, a_max=None))
+            bad = ~np.isfinite(vals)
+            vals[bad] = fallback[bad]
     df = df.copy()
     df["mlog10p"] = np.clip(vals, a_min=0.0, a_max=None)
     return df
