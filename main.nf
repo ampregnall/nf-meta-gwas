@@ -127,29 +127,34 @@ workflow {
     QC_META_GWAS(ch_collected_meta.sumstats)
 
     // ---------------------------------------------------------------------------
-    // MAGMA / PoPS / FLAMES gene-prioritisation pipeline
-    // MAGMA and PoPS run on all meta-analysis outputs regardless of GWS status.
-    // FLAMES runs only on phenotype-population combinations with GWS hits
-    // (naturally gated by the ABF_FINEMAPPING output).
+    // MAGMA / PoPS / FLAMES gene-prioritisation pipeline — opt-in
+    //
+    // Set params.magma_bfile (and related MAGMA/PoPS params) to enable MAGMA
+    // and PoPS. Set params.flames_annotation_data to additionally enable FLAMES.
+    // Leave any param null to skip that tier. The core pipeline (harmonisation,
+    // meta-analysis, fine-mapping) always runs regardless of these params.
     // ---------------------------------------------------------------------------
 
-    ch_magma_input = PREPARE_MAGMA_INPUT(ch_collected_meta.sumstats)
+    if (params.magma_bfile) {
+        ch_magma_input = PREPARE_MAGMA_INPUT(ch_collected_meta.sumstats)
 
-    ch_magma = MAGMA_GENE(ch_magma_input.magma_input)
+        ch_magma = MAGMA_GENE(ch_magma_input.magma_input)
 
-    // MAGMA tissue expression and PoPS both branch from the genes.raw output
-    ch_magma_tissue = MAGMA_TISSUE(ch_magma.genes_raw)
-    ch_pops         = POPS(ch_magma.genes_raw)
+        // MAGMA tissue expression and PoPS both branch from the genes.raw output
+        ch_magma_tissue = MAGMA_TISSUE(ch_magma.genes_raw)
+        ch_pops         = POPS(ch_magma.genes_raw)
 
-    // Prepare FLAMES-specific inputs (per-locus credset files, locus file, index)
-    // from the ABF fine-mapping credset — only exists for GWS cases
-    ch_flames_prep = PREPARE_FLAMES_INPUTS(ch_abf.credset)
+        // FLAMES additionally requires annotation data; ch_abf is always defined
+        // (gated upstream by GWS hits) so this reference is always safe
+        if (params.flames_annotation_data) {
+            ch_flames_prep = PREPARE_FLAMES_INPUTS(ch_abf.credset)
 
-    // Join all FLAMES inputs by phenotype+population and run
-    ch_for_flames = ch_flames_prep.flames_inputs
-        .join(ch_pops.pops_preds,        by: 0)
-        .join(ch_magma.genes_out,        by: 0)
-        .join(ch_magma_tissue.gsa_out,   by: 0)
+            ch_for_flames = ch_flames_prep.flames_inputs
+                .join(ch_pops.pops_preds,      by: 0)
+                .join(ch_magma.genes_out,      by: 0)
+                .join(ch_magma_tissue.gsa_out, by: 0)
 
-    FLAMES(ch_for_flames)
+            FLAMES(ch_for_flames)
+        }
+    }
 }

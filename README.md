@@ -175,7 +175,7 @@ Files are expected in the **gwaslab** input format (tab-delimited, gzip-compress
 
 ### Reference files
 
-The following reference files are required and configured in `nextflow.config`. Voltron HPC paths are pre-filled where available; MAGMA, PoPS, and FLAMES paths are placeholders that must be set before running those steps.
+The following reference files are configured in `nextflow.config`. Voltron HPC paths are pre-filled where available. MAGMA, PoPS, and FLAMES params default to `null` — these analyses are **opt-in**: set a param to a non-null path to enable it, leave it `null` to skip. Harmonisation, meta-analysis, and fine-mapping reference files are required for all runs.
 
 | Parameter | Description |
 |-----------|-------------|
@@ -292,7 +292,9 @@ data/
 
 > **Note:** Heritability results are only produced for per-population meta-analysis results. The across-population (`all`) meta uses EUR LD panels by default; update `params.ldsc_reference.all` in `nextflow.config` as appropriate for your study.
 
-> **Note:** MAGMA, PoPS, and FLAMES run on all meta-analysis outputs. FLAMES additionally requires genome-wide significant loci; phenotype-population combinations without GWS hits are automatically skipped.
+> **Note — opt-in analyses:** MAGMA, PoPS, and FLAMES are opt-in and will only run when the required reference file params are non-null (see [Parameters](#parameters)). Set `params.magma_bfile` (and the other MAGMA/PoPS params) to enable MAGMA + PoPS. Set `params.flames_annotation_data` in addition to enable FLAMES. Providing MAGMA params but not `flames_annotation_data` runs MAGMA + PoPS only. Harmonisation, meta-analysis, and fine-mapping always run — this pipeline is purpose-built for meta-analysis and these core steps cannot be skipped.
+
+> **Note — GWS gating:** FLAMES additionally requires genome-wide significant loci; phenotype-population combinations without GWS hits are automatically skipped by the upstream ABF fine-mapping filter.
 
 ---
 
