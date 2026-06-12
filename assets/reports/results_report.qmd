@@ -1,0 +1,292 @@
+---
+title: "GWAS Meta-Analysis Results Report"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    code-fold: true
+execute:
+  echo: false
+  warning: false
+params:
+  phenotype: ""
+  results_dir: ""
+  locus_annotated: ""
+  credsets: []
+  has_vep: false
+  has_hyprcoloc: false
+  has_flames: false
+---
+
+```{python}
+import base64
+from pathlib import Path
+from IPython.display import display, Markdown, HTML
+import pandas as pd
+import glob
+
+phenotype      = params["phenotype"]
+results_dir    = Path(params["results_dir"])
+locus_ann_path = Path(params["locus_annotated"])
+credset_paths  = [Path(f) for f in params["credsets"]]
+has_vep        = params["has_vep"]
+has_hyprcoloc  = params["has_hyprcoloc"]
+has_flames     = params["has_flames"]
+
+manhattan_dir  = results_dir / "plots" / "manhattan" / phenotype
+locus_plot_dir = results_dir / "plots" / "locus" / phenotype
+qc_plots_dir   = results_dir / "plots" / "qc" / phenotype
+vep_dir        = results_dir / "vep" / phenotype
+coloc_dir      = results_dir / "colocalization" / phenotype
+
+POP_ORDER = ["all", "eur", "afr", "amr", "eas", "csa", "mid"]
+
+def pop_sort_key(name):
+    p = name.lower()
+    return POP_ORDER.index(p) if p in POP_ORDER else len(POP_ORDER)
+
+def tbl(df, max_rows=500):
+    return HTML(df.head(max_rows).to_html(
+        index=False, classes="table table-striped table-sm", border=0
+    ))
+
+def img_b64(path, caption="", width="100%"):
+    p = Path(path)
+    if not p.exists():
+        return ""
+    data = base64.b64encode(p.read_bytes()).decode()
+    mime = "image/png" if p.suffix == ".png" else f"image/{p.suffix.lstrip('.')}"
+    cap  = f"<figcaption style='text-align:center;font-size:0.85em'>{caption}</figcaption>" if caption else ""
+    return (f'<figure style="margin:0">'
+            f'<img src="data:{mime};base64,{data}" style="width:{width};max-width:900px"/>'
+            f'{cap}</figure>')
+
+display(Markdown(f"**Phenotype:** {phenotype}"))
+```
+
+## Summary
+
+```{python}
+if locus_ann_path.exists():
+    loci = pd.read_csv(locus_ann_path, sep="\t")
+    n_loci = len(loci)
+    n_pop_specific = int(loci["POPULATION_SPECIFIC"].sum()) if "POPULATION_SPECIFIC" in loci.columns else "N/A"
+    pops_with_hits = set()
+    if "POPULATIONS" in loci.columns:
+        for row in loci["POPULATIONS"].dropna():
+            pops_with_hits.update(row.split(";"))
+
+    summary_html = f"""
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:1em">
+  <div style="background:#e8f4fd;padding:16px 24px;border-radius:8px;min-width:140px;text-align:center">
+    <div style="font-size:2em;font-weight:bold">{n_loci}</div>
+    <div>GWS loci</div>
+  </div>
+  <div style="background:#e8f4fd;padding:16px 24px;border-radius:8px;min-width:140px;text-align:center">
+    <div style="font-size:2em;font-weight:bold">{len(pops_with_hits)}</div>
+    <div>Populations with hits</div>
+  </div>
+  <div style="background:#fff3cd;padding:16px 24px;border-radius:8px;min-width:140px;text-align:center">
+    <div style="font-size:2em;font-weight:bold">{n_pop_specific}</div>
+    <div>Population-specific loci</div>
+  </div>
+</div>
+"""
+    display(HTML(summary_html))
+else:
+    display(Markdown("> `locus_annotated.txt` not found — no lead variants identified."))
+    loci = pd.DataFrame()
+```
+
+## Lead Variants
+
+```{python}
+if not loci.empty:
+    display_cols = [c for c in [
+        "LOCUS", "CHR", "POS", "EA", "NEA", "BETA", "SE", "P",
+        "POPULATIONS", "POPULATION_SPECIFIC",
+        "NEAREST_GENE", "PRIORITIZED_GENE", "PRIORITIZATION_METHOD",
+    ] if c in loci.columns]
+
+    styled = loci[display_cols].copy()
+    # Format P-value
+    if "P" in styled.columns:
+        styled["P"] = styled["P"].apply(lambda x: f"{x:.2e}" if pd.notna(x) else "")
+
+    def highlight_pop_specific(row):
+        color = "background-color: #fff3cd"
+        val = row.get("POPULATION_SPECIFIC", False) if hasattr(row, "get") else False
+        return [color if val else ""] * len(row)
+
+    html_table = (
+        styled.style
+        .apply(highlight_pop_specific, axis=1)
+        .set_table_styles([
+            {"selector": "thead tr th", "props": [("background-color", "#045ea7"), ("color", "white"), ("padding", "8px")]},
+            {"selector": "td", "props": [("padding", "6px")]},
+        ])
+        .to_html()
+    )
+    display(HTML(html_table))
+    display(Markdown("*Yellow rows indicate population-specific loci (no EUR or cross-population hit).*"))
+else:
+    display(Markdown("> No lead variants to display."))
+```
+
+## Manhattan Plots
+
+```{python}
+#| output: asis
+meta_manhattan = sorted(
+    glob.glob(str(manhattan_dir / f"{phenotype}-*-meta.manhattan.png")),
+    key=lambda f: pop_sort_key(
+        Path(f).name.replace(f"{phenotype}-", "").replace("-meta.manhattan.png", "")
+    )
+)
+
+if meta_manhattan:
+    md = "::: {.panel-tabset}\n\n"
+    for f in meta_manhattan:
+        pop = Path(f).name.replace(f"{phenotype}-", "").replace("-meta.manhattan.png", "").upper()
+        md += f"## {pop}\n\n"
+        md += img_b64(f, width="100%") + "\n\n"
+    md += ":::\n"
+    display(Markdown(md))
+else:
+    display(Markdown("> No meta-analysis Manhattan plots found."))
+```
+
+## Regional Locus Plots
+
+```{python}
+locus_pngs = sorted(glob.glob(str(locus_plot_dir / "*.locus.png")))
+
+if locus_pngs:
+    grid_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px">\n'
+    for f in locus_pngs:
+        name = Path(f).stem.replace(".locus", "")
+        # Filename: {CHR}-{start}-{end}-{gene}.locus.png
+        parts = name.split("-")
+        caption = parts[-1] if parts else name
+        grid_html += img_b64(f, caption=caption, width="100%") + "\n"
+    grid_html += "</div>\n"
+    display(HTML(grid_html))
+else:
+    display(Markdown("> No regional locus plots found."))
+```
+
+## Fine-Mapping
+
+### Credible Set Size Distribution
+
+```{python}
+img_path = qc_plots_dir / f"{phenotype}.credset-sizes.png"
+html = img_b64(img_path, width="70%")
+if html:
+    display(HTML(html))
+else:
+    display(Markdown("> Credset size plot not found."))
+```
+
+### Single-Variant Credible Sets
+
+```{python}
+# Load all credsets, identify loci where CS size = 1
+all_cred_frames = []
+for f in credset_paths:
+    try:
+        df = pd.read_csv(f, sep="\t")
+        if not df.empty:
+            all_cred_frames.append(df)
+    except Exception:
+        pass
+
+if all_cred_frames:
+    all_cred = pd.concat(all_cred_frames, ignore_index=True)
+    locus_sizes = all_cred.groupby("LOCUS").size()
+    singleton_loci = locus_sizes[locus_sizes == 1].index
+    singletons = all_cred[all_cred["LOCUS"].isin(singleton_loci)].copy()
+
+    if has_vep:
+        vep_files = glob.glob(str(vep_dir / f"{phenotype}-*.vep_annotated_credset.txt"))
+        vep_frames = []
+        for vf in vep_files:
+            try:
+                vep_frames.append(pd.read_csv(vf, sep="\t"))
+            except Exception:
+                pass
+        if vep_frames:
+            vep_df = pd.concat(vep_frames, ignore_index=True)
+            vep_cols = ["SNPID", "VEP_SYMBOL", "VEP_Consequence", "VEP_IMPACT", "VEP_VARIANT_CLASS"]
+            vep_keep = [c for c in vep_cols if c in vep_df.columns]
+            singletons = singletons.merge(vep_df[vep_keep].drop_duplicates("SNPID"),
+                                          on="SNPID", how="left")
+
+    if not singletons.empty:
+        display_cols = [c for c in [
+            "SNPID", "rsID", "LOCUS", "CHR", "POS", "EA", "NEA",
+            "BETA", "SE", "NEAREST_GENE", "BF_PIP",
+            "VEP_SYMBOL", "VEP_Consequence", "VEP_IMPACT", "VEP_VARIANT_CLASS",
+        ] if c in singletons.columns]
+        singletons["BF_PIP"] = singletons["BF_PIP"].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "")
+        display(Markdown(f"**{len(singletons)} single-variant credible set(s):**"))
+        display(tbl(singletons[display_cols]))
+    else:
+        display(Markdown("> No single-variant credible sets found."))
+else:
+    display(Markdown("> No credset files available."))
+```
+
+## Population-Specific Loci
+
+```{python}
+if not loci.empty and "POPULATION_SPECIFIC" in loci.columns:
+    pop_specific = loci[loci["POPULATION_SPECIFIC"] == True]
+    if not pop_specific.empty:
+        display_cols = [c for c in [
+            "LOCUS", "CHR", "POS", "EA", "NEA", "BETA", "SE", "P",
+            "POPULATIONS", "NEAREST_GENE", "PRIORITIZED_GENE",
+        ] if c in pop_specific.columns]
+        display(Markdown(f"**{len(pop_specific)} population-specific locus/loci** "
+                         f"(no EUR or cross-population hit):"))
+        display(tbl(pop_specific[display_cols]))
+    else:
+        display(Markdown("> No population-specific loci identified."))
+else:
+    display(Markdown("> Population-specific locus information not available."))
+```
+
+## eQTL Colocalization
+
+```{python}
+if has_hyprcoloc:
+    coloc_file = coloc_dir / f"{phenotype}.hyprcoloc.tsv"
+    if coloc_file.exists():
+        coloc = pd.read_csv(coloc_file, sep="\t")
+        # Filter to PP > 0.7
+        if "posterior_prob" in coloc.columns:
+            coloc = coloc[pd.to_numeric(coloc["posterior_prob"], errors="coerce") > 0.7]
+        if not coloc.empty:
+            display_cols = [c for c in [
+                "locus", "eqtl_gene", "eqtl_study", "traits",
+                "posterior_prob", "regional_prob", "candidate_snp",
+                "posterior_explained_by_snp",
+            ] if c in coloc.columns]
+            if "posterior_prob" in coloc.columns:
+                coloc["posterior_prob"] = coloc["posterior_prob"].apply(
+                    lambda x: f"{x:.3f}" if pd.notna(x) else ""
+                )
+            display(Markdown(f"**{len(coloc)} colocalising signal(s)** (posterior probability > 0.7):"))
+            display(tbl(coloc[display_cols]))
+        else:
+            display(Markdown("> No colocalisations with posterior probability > 0.7."))
+    else:
+        display(Markdown("> HyPrColoc results file not found."))
+else:
+    display(Markdown(
+        "> :information_source: **eQTL colocalization was not run** for this phenotype.\n"
+        "> Set `params.eqtl_catalog_path` to enable HyPrColoc colocalization analysis."
+    ))
+```

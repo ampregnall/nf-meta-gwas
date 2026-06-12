@@ -28,8 +28,12 @@ include { ANNOTATE_CREDSET_VEP         } from "${projectDir}/modules/annotate_cr
 include { HYPRCOLOC                    } from "${projectDir}/modules/hyprcoloc.nf"
 include { COLLECT_HYPRCOLOC            } from "${projectDir}/modules/collect_hyprcoloc.nf"
 include { LOCUS_PLOT                   } from "${projectDir}/modules/locus_plot.nf"
+include { ANNOTATE_LOCI               } from "${projectDir}/modules/annotate_loci.nf"
+include { RENDER_REPORT               } from "${projectDir}/modules/render_report.nf"
 
 workflow {
+    def ch_flames = null
+
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
 
     ch_sumstats = ch_input.map { phenotype, trait_type, population, cohort, col_overrides ->
@@ -179,9 +183,10 @@ workflow {
                 .join(ch_magma.genes_out,      by: 0)
                 .join(ch_magma_tissue.gsa_out, by: 0)
 
-            FLAMES(ch_for_flames)
+            ch_flames = FLAMES(ch_for_flames)
         }
     }
+
 
     // ---------------------------------------------------------------------------
     // VEP annotation of credible set variants — opt-in (params.vep_cache)
@@ -228,4 +233,52 @@ workflow {
                 )
         )
     }
+
+    // ---------------------------------------------------------------------------
+    // Locus annotation: add NEAREST_GENE (from credsets) and optionally
+    // PRIORITIZED_GENE from FLAMES gene prioritisation. Always runs when
+    // fine-mapping credsets are available. Produces locus_annotated.txt.
+    // ---------------------------------------------------------------------------
+
+    ch_credsets_by_phenotype = ch_abf.credset
+        .map { meta, f -> [[phenotype: meta.phenotype], f] }
+        .groupTuple(by: 0)
+
+    ch_for_annotation = ch_locus_summary.locus_summary
+        .join(ch_credsets_by_phenotype, by: 0)
+
+    def ch_locus_annotated
+    if (params.flames_annotation_data && ch_flames != null) {
+        ch_flames_scores_by_phen = ch_flames.scores
+            .map { meta, dir -> [[phenotype: meta.phenotype], dir.toAbsolutePath().toString()] }
+            .groupTuple(by: 0)
+            .map { meta, dirs -> [meta, dirs] }
+
+        ch_locus_annotated = ANNOTATE_LOCI(
+            ch_for_annotation.join(ch_flames_scores_by_phen, by: 0)
+        )
+    } else {
+        ch_locus_annotated = ANNOTATE_LOCI(
+            ch_for_annotation.map { meta, locus, credsets -> [meta, locus, credsets, []] }
+        )
+    }
+
+    // ---------------------------------------------------------------------------
+    // HTML reports: QC report and results report, one of each per phenotype.
+    // ---------------------------------------------------------------------------
+
+    def run_vep       = params.vep_cache              as boolean
+    def run_hyprcoloc = params.eqtl_catalog_path      as boolean
+    def run_flames    = params.flames_annotation_data as boolean
+
+    ch_report_input = ch_locus_annotated.locus_annotated
+        .join(ch_credsets_by_phenotype,               by: 0)
+        .join(ch_filter_stats_collected.filter_stats, by: 0)
+        .join(ch_ldsc_collected.ldsc_h2,              by: 0)
+        .map { meta, locus, credsets, fs, ldsc ->
+            tuple(meta, locus, credsets, fs, ldsc,
+                  run_vep, run_hyprcoloc, run_flames)
+        }
+
+    RENDER_REPORT(ch_report_input)
 }

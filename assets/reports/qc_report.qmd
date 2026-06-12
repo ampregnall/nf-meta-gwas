@@ -1,0 +1,186 @@
+---
+title: "GWAS Meta-Analysis QC Report"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    code-fold: true
+execute:
+  echo: false
+  warning: false
+params:
+  phenotype: ""
+  results_dir: ""
+  filter_stats: ""
+  ldsc_h2: ""
+  has_vep: false
+  has_hyprcoloc: false
+  has_flames: false
+---
+
+```{python}
+import base64
+from pathlib import Path
+from IPython.display import display, Markdown, HTML
+import pandas as pd
+import glob
+
+phenotype     = params["phenotype"]
+results_dir   = Path(params["results_dir"])
+filter_stats  = Path(params["filter_stats"])
+ldsc_h2_path  = Path(params["ldsc_h2"])
+
+qc_plots_dir  = results_dir / "plots" / "qc" / phenotype
+
+def img_b64(path, caption="", width="100%"):
+    """Return an inline base64 HTML image string, or empty string if file missing."""
+    p = Path(path)
+    if not p.exists():
+        return ""
+    data = base64.b64encode(p.read_bytes()).decode()
+    ext  = p.suffix.lstrip(".")
+    mime = "image/png" if ext == "png" else f"image/{ext}"
+    cap  = f"<figcaption>{caption}</figcaption>" if caption else ""
+    return (f'<figure><img src="data:{mime};base64,{data}" '
+            f'style="width:{width};max-width:900px"/>{cap}</figure>')
+
+def img(path, caption="", width="100%"):
+    html = img_b64(path, caption, width)
+    if html:
+        display(HTML(html))
+    else:
+        display(Markdown(f"> **Plot not found:** `{Path(path).name}`"))
+
+display(Markdown(f"**Phenotype:** {phenotype}"))
+```
+
+## Input Harmonisation
+
+```{python}
+if filter_stats.exists():
+    fs = pd.read_csv(filter_stats, sep="\t")
+    display(Markdown(f"Filter statistics across **{fs['COHORT'].nunique() if 'COHORT' in fs.columns else 'N/A'}** cohorts."))
+    display(HTML(fs.to_html(index=False, classes="table table-striped table-sm", border=0)))
+else:
+    display(Markdown("> Filter statistics file not found."))
+```
+
+```{python}
+if ldsc_h2_path.exists():
+    ldsc = pd.read_csv(ldsc_h2_path, sep="\t")
+    display(HTML(ldsc.to_html(index=False, classes="table table-striped table-sm", border=0)))
+```
+
+## Cross-Cohort Comparison
+
+```{python}
+for suffix, caption in [
+    ("filter-cascade",         "Variant filter cascade across all cohorts"),
+    ("ldsc-summary",           "LDSC h² summary across cohorts"),
+    ("effect-size-comparison", "Effect size comparison across cohorts"),
+]:
+    img(qc_plots_dir / f"{phenotype}.{suffix}.png", caption)
+```
+
+## Per-Cohort QC Plots
+
+```{python}
+#| output: asis
+plot_suffixes = [
+    ("precision-sample-size",   "Precision vs N"),
+    ("eaf-distribution",        "EAF distribution"),
+    ("zscore-distribution",     "Z-score distribution"),
+    ("effect-size-distribution","Effect size distribution"),
+]
+
+# Discover cohort-population combinations from filenames
+pattern = str(qc_plots_dir / f"{phenotype}-*.precision-sample-size.png")
+files = sorted(glob.glob(pattern))
+cohort_pops = []
+for f in files:
+    name = Path(f).name
+    # Remove phenotype prefix and suffix to get cohort-population token
+    token = name.replace(f"{phenotype}-", "").replace(".precision-sample-size.png", "")
+    cohort_pops.append(token)
+
+if cohort_pops:
+    md = "::: {.panel-tabset}\n\n"
+    for cp in cohort_pops:
+        md += f"## {cp}\n\n"
+        for suffix, _ in plot_suffixes:
+            p = qc_plots_dir / f"{phenotype}-{cp}.{suffix}.png"
+            html = img_b64(p, width="80%")
+            if html:
+                md += html + "\n\n"
+        md += "\n"
+    md += ":::\n"
+    display(Markdown(md))
+else:
+    display(Markdown("> No per-cohort QC plots found."))
+```
+
+## Input GWAS QQ Plots
+
+```{python}
+#| output: asis
+qq_files = sorted(glob.glob(str(qc_plots_dir / f"{phenotype}-*.qq.png")))
+# Exclude meta QQ files
+qq_files = [f for f in qq_files if "-meta.qq" not in f]
+
+if qq_files:
+    md = "::: {.panel-tabset}\n\n"
+    for f in qq_files:
+        token = Path(f).name.replace(f"{phenotype}-", "").replace(".qq.png", "")
+        html = img_b64(f, width="80%")
+        md += f"## {token}\n\n"
+        md += html + "\n\n"
+    md += ":::\n"
+    display(Markdown(md))
+else:
+    display(Markdown("> No input QQ plots found."))
+```
+
+## Meta-Analysis QC
+
+```{python}
+#| output: asis
+
+# QQ plots for each meta-analysis population
+meta_qq = sorted(glob.glob(str(qc_plots_dir / f"{phenotype}-*-meta.qq.png")))
+meta_het = sorted(glob.glob(str(qc_plots_dir / f"{phenotype}-*-meta.heterogeneity.png")))
+meta_ncon = sorted(glob.glob(str(qc_plots_dir / f"{phenotype}-*-meta.n-contributions.png")))
+
+all_pops = sorted({
+    Path(f).name.replace(f"{phenotype}-", "").replace("-meta.qq.png", "")
+    for f in meta_qq
+} | {
+    Path(f).name.replace(f"{phenotype}-", "").replace("-meta.heterogeneity.png", "")
+    for f in meta_het
+})
+
+if all_pops:
+    md = "::: {.panel-tabset}\n\n"
+    for pop in all_pops:
+        md += f"## {pop.upper()}\n\n"
+        for fpath, label in [
+            (qc_plots_dir / f"{phenotype}-{pop}-meta.qq.png",             "QQ plot"),
+            (qc_plots_dir / f"{phenotype}-{pop}-meta.heterogeneity.png",  "I² heterogeneity"),
+            (qc_plots_dir / f"{phenotype}-{pop}-meta.n-contributions.png", "N contributions"),
+        ]:
+            html = img_b64(fpath, width="80%")
+            if html:
+                md += f"**{label}**\n\n" + html + "\n\n"
+        md += "\n"
+    md += ":::\n"
+    display(Markdown(md))
+else:
+    display(Markdown("> No meta-analysis QC plots found."))
+```
+
+```{python}
+# Credset size distribution
+img(qc_plots_dir / f"{phenotype}.credset-sizes.png",
+    "99% credible set size distribution by population")
+```

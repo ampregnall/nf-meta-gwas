@@ -1,0 +1,14 @@
+name: base
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas=2.0
+  - matplotlib=3.8
+  - plotnine=0.12
+  - jupyter
+  - nbformat
+  - pyyaml
+  - pip:
+    - itables==1.7.1
