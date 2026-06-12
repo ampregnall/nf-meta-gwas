@@ -7,7 +7,7 @@ process COLLECT_LEAD_VARIANTS {
         tuple val(meta), path(lead_files)
 
     output:
-        tuple val(meta), path("*.locus_summary.txt")
+        tuple val(meta), path("*.locus_summary.txt"), emit: locus_summary
 
     script:
     def prefix = "${meta.phenotype}"

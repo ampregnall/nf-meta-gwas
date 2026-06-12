@@ -26,6 +26,7 @@ include { VEP                          } from "${projectDir}/modules/vep.nf"
 include { ANNOTATE_CREDSET_VEP         } from "${projectDir}/modules/annotate_credset_vep.nf"
 include { HYPRCOLOC                    } from "${projectDir}/modules/hyprcoloc.nf"
 include { COLLECT_HYPRCOLOC            } from "${projectDir}/modules/collect_hyprcoloc.nf"
+include { LOCUS_PLOT                   } from "${projectDir}/modules/locus_plot.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -83,10 +84,21 @@ workflow {
     ch_lead = EXTRACT_LEAD_VARIANTS(ch_collected_meta.sumstats)
 
     // Aggregate lead variants across all populations per phenotype, cluster into loci, flag population-specific hits
-    ch_lead.lead_variants
+    ch_locus_summary = ch_lead.lead_variants
         .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
         .groupTuple(by: 0)
         | COLLECT_LEAD_VARIANTS
+
+    // Locus plots for all GWS loci — one stacked multi-population regional plot per locus
+    ch_all_meta_by_phenotype = ch_collected_meta.sumstats
+        .map { meta, f -> [[phenotype: meta.phenotype], f] }
+        .groupTuple(by: 0)
+
+    LOCUS_PLOT(
+        ch_locus_summary.locus_summary
+            .filter { meta, locus -> locus.countLines() > 1 }
+            .join(ch_all_meta_by_phenotype, by: 0)
+    )
 
     // Heritability estimation on per-population meta results only (ldsc_reference is per-population)
     HERITABILITY(
