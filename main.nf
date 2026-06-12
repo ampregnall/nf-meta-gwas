@@ -21,6 +21,11 @@ include { MAGMA_TISSUE                 } from "${projectDir}/modules/magma_tissu
 include { POPS                         } from "${projectDir}/modules/pops.nf"
 include { PREPARE_FLAMES_INPUTS        } from "${projectDir}/modules/prepare_flames_inputs.nf"
 include { FLAMES                       } from "${projectDir}/modules/flames.nf"
+include { PREPARE_VEP_INPUT            } from "${projectDir}/modules/prepare_vep_input.nf"
+include { VEP                          } from "${projectDir}/modules/vep.nf"
+include { ANNOTATE_CREDSET_VEP         } from "${projectDir}/modules/annotate_credset_vep.nf"
+include { HYPRCOLOC                    } from "${projectDir}/modules/hyprcoloc.nf"
+include { COLLECT_HYPRCOLOC            } from "${projectDir}/modules/collect_hyprcoloc.nf"
 
 workflow {
     ch_input = Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
@@ -156,5 +161,51 @@ workflow {
 
             FLAMES(ch_for_flames)
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // VEP annotation of credible set variants — opt-in (params.vep_cache)
+    // Annotates each credset with the most severe VEP consequence per variant.
+    // ---------------------------------------------------------------------------
+
+    if (params.vep_cache) {
+        ch_vep_prep = PREPARE_VEP_INPUT(ch_abf.credset)
+        ch_vep_out  = VEP(ch_vep_prep.vep_input)
+        ANNOTATE_CREDSET_VEP(
+            ch_abf.credset.join(ch_vep_out.vep_annotation, by: 0)
+        )
+    }
+
+    // ---------------------------------------------------------------------------
+    // HyPrColoc eQTL colocalization — opt-in (params.eqtl_catalog_path)
+    // Runs on cross-population ("all") meta only; one job per eQTL study file;
+    // results aggregated per phenotype.
+    // ---------------------------------------------------------------------------
+
+    if (params.eqtl_catalog_path) {
+        ch_eqtl_files = Channel.fromPath("${params.eqtl_catalog_path}/*.parquet")
+
+        ch_for_coloc = ch_collected_meta.sumstats
+            .filter  { it[0].population == "all" }
+            .join(
+                ch_lead.lead_variants.filter { it[0].population == "all" },
+                by: 0
+            )
+            .filter { meta, sumstats, leads -> leads.countLines() > 1 }
+            .combine(ch_eqtl_files)
+
+        ch_hyprcoloc = HYPRCOLOC(ch_for_coloc)
+
+        COLLECT_HYPRCOLOC(
+            ch_hyprcoloc.results
+                .map  { meta, tsv -> [[phenotype: meta.phenotype], tsv] }
+                .groupTuple(by: 0)
+                .join(
+                    ch_hyprcoloc.failures
+                        .map  { meta, tsv -> [[phenotype: meta.phenotype], tsv] }
+                        .groupTuple(by: 0),
+                    by: 0
+                )
+        )
     }
 }
