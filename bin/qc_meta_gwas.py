@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Meta-analysis QC plots: I² heterogeneity distribution and N_CONTRIBUTIONS breakdown."""
+"""Meta-analysis QC plots: I² heterogeneity distribution and N_CONTRIBUTIONS breakdown,
+plus 99% credible set size distribution violin plot."""
 
 import matplotlib
 matplotlib.use("Agg")
 
 import argparse
+import os
 import warnings
 import numpy as np
 import pandas as pd
 import plotnine as p9
 from plotnine import (
-    ggplot, aes, geom_histogram, geom_col, geom_vline,
-    scale_x_continuous, scale_x_discrete, scale_y_continuous,
-    theme_classic, theme, element_text,
+    ggplot, aes, geom_histogram, geom_col, geom_violin, geom_jitter,
+    geom_vline, scale_x_continuous, scale_x_discrete, scale_y_continuous,
+    scale_y_log10, scale_fill_manual, theme_classic, theme, element_text,
 )
 
 FIG_WIDTH = 8
@@ -21,11 +23,16 @@ DPI = 300
 COLOR_MAIN = "#045ea7"
 COLOR_LIGHT = "#82afd3"
 
+POP_ORDER = ["all", "eur", "afr", "amr", "eas", "csa", "mid"]
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Meta-analysis QC plots")
-    p.add_argument("--input",  required=True, help="Collected meta sumstats (.txt.gz)")
+    p.add_argument("--input",  help="Collected meta sumstats (.txt.gz)")
     p.add_argument("--output", required=True, help="Output prefix")
+    p.add_argument("--credsets", nargs="+",
+                   help="Credset .txt files (all populations) for CS size violin plot")
+    p.add_argument("--phenotype", help="Phenotype name (used to parse population from credset filenames)")
     return p.parse_args()
 
 
@@ -80,6 +87,50 @@ def n_contributions_plot(df):
     )
 
 
+def load_credsets(paths, phenotype):
+    """Load credset files and return a DataFrame with per-locus CS sizes and population labels."""
+    frames = []
+    for f in paths:
+        basename = os.path.basename(f)
+        pop = basename.replace(f"{phenotype}-", "").replace(".credset.txt", "")
+        df = pd.read_csv(f, sep="\t", usecols=["LOCUS"])
+        if df.empty:
+            continue
+        sizes = df.groupby("LOCUS").size().reset_index(name="cs_size")
+        sizes["population"] = pop.upper()
+        frames.append(sizes)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+def credset_violin_plot(df):
+    """Violin plot of 99% credible set sizes per population (log y-axis)."""
+    ordered = sorted(
+        df["population"].unique(),
+        key=lambda x: POP_ORDER.index(x.lower()) if x.lower() in POP_ORDER else len(POP_ORDER),
+    )
+    df = df.copy()
+    df["population"] = pd.Categorical(df["population"], categories=ordered, ordered=True)
+
+    return (
+        ggplot(df, aes(x="population", y="cs_size"))
+        + geom_violin(fill=COLOR_MAIN, color="white", alpha=0.80, trim=True, scale="width")
+        + geom_jitter(width=0.12, size=0.9, alpha=0.55, color=COLOR_LIGHT, stroke=0)
+        + scale_y_log10(
+            name="99% credible set size (variants)",
+            breaks=[1, 2, 5, 10, 25, 50, 100, 250, 500],
+        )
+        + scale_x_discrete(name="Population")
+        + theme_classic()
+        + theme(
+            figure_size=(FIG_WIDTH, FIG_HEIGHT),
+            axis_title=element_text(size=10),
+            axis_text_x=element_text(size=9),
+        )
+    )
+
+
 def save_plot(plot, prefix, suffix):
     for ext in ("png", "pdf"):
         with warnings.catch_warnings():
@@ -92,6 +143,15 @@ def save_plot(plot, prefix, suffix):
 
 def main():
     args = parse_args()
+
+    if args.credsets:
+        if not args.phenotype:
+            raise ValueError("--phenotype is required when --credsets is provided")
+        cs_df = load_credsets(args.credsets, args.phenotype)
+        if not cs_df.empty:
+            save_plot(credset_violin_plot(cs_df), args.output, "credset-sizes")
+        return
+
     df = load_meta(args.input)
     if df.empty:
         return

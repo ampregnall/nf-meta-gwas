@@ -15,6 +15,7 @@ include { PLOT_GWAS as PLOT_META_GWAS  } from "${projectDir}/modules/plot_gwas.n
 include { QC_INPUT_GWAS                } from "${projectDir}/modules/qc_input_gwas.nf"
 include { QC_COHORT_SUMMARY            } from "${projectDir}/modules/qc_cohort_summary.nf"
 include { QC_META_GWAS                 } from "${projectDir}/modules/qc_meta_gwas.nf"
+include { QC_CREDSET_SIZES             } from "${projectDir}/modules/qc_meta_gwas.nf"
 include { PREPARE_MAGMA_INPUT          } from "${projectDir}/modules/prepare_magma_input.nf"
 include { MAGMA_GENE                   } from "${projectDir}/modules/magma_gene.nf"
 include { MAGMA_TISSUE                 } from "${projectDir}/modules/magma_tissue.nf"
@@ -142,6 +143,13 @@ workflow {
 
     // Meta-analysis heterogeneity and N_CONTRIBUTIONS QC plots
     QC_META_GWAS(ch_collected_meta.sumstats)
+
+    // 99% credible set size distribution violin plot per phenotype
+    QC_CREDSET_SIZES(
+        ch_abf.credset
+            .map { meta, f -> [[phenotype: meta.phenotype], f] }
+            .groupTuple(by: 0)
+    )
 
     // ---------------------------------------------------------------------------
     // MAGMA / PoPS / FLAMES gene-prioritisation pipeline — opt-in
