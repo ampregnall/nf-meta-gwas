@@ -6,7 +6,7 @@ process COLLECT_FILTER_STATS {
         tuple val(meta), path(filter_stats_files)
 
     output:
-        tuple val(meta), path("*.filter_stats.txt")
+        tuple val(meta), path("*.filter_stats.txt"), emit: filter_stats
 
     script:
     def prefix = "${meta.phenotype}"

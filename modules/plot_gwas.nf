@@ -11,7 +11,7 @@ process PLOT_GWAS {
         pattern: "*.manhattan.*"
     )
     publishDir(
-        { "${launchDir}/results/plots/qq/${meta.phenotype}" },
+        { "${launchDir}/results/plots/qc/${meta.phenotype}" },
         mode: 'copy',
         pattern: "*.qq.*"
     )

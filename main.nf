@@ -12,6 +12,9 @@ include { TISSUE_ENRICHMENT } from "${projectDir}/modules/tissue_enrichment.nf"
 include { COLLECT_LEAD_VARIANTS } from "${projectDir}/modules/collect_lead_variants.nf"
 include { PLOT_GWAS as PLOT_INPUT_GWAS  } from "${projectDir}/modules/plot_gwas.nf"
 include { PLOT_GWAS as PLOT_META_GWAS  } from "${projectDir}/modules/plot_gwas.nf"
+include { QC_INPUT_GWAS                } from "${projectDir}/modules/qc_input_gwas.nf"
+include { QC_COHORT_SUMMARY            } from "${projectDir}/modules/qc_cohort_summary.nf"
+include { QC_META_GWAS                 } from "${projectDir}/modules/qc_meta_gwas.nf"
 include { PREPARE_MAGMA_INPUT          } from "${projectDir}/modules/prepare_magma_input.nf"
 include { MAGMA_GENE                   } from "${projectDir}/modules/magma_gene.nf"
 include { MAGMA_TISSUE                 } from "${projectDir}/modules/magma_tissue.nf"
@@ -32,16 +35,18 @@ workflow {
     ch_ldsc_out = LDSC_CORRECTION(ch_sumstats_munged.sumstats_munged)
 
     // Gather filter stats per phenotype and publish combined file
-    ch_sumstats_munged.filter_stats
-        .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
-        .groupTuple(by: 0)
-        | COLLECT_FILTER_STATS
+    ch_filter_stats_collected = COLLECT_FILTER_STATS(
+        ch_sumstats_munged.filter_stats
+            .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
+            .groupTuple(by: 0)
+    )
 
     // Gather LDSC h2 results per phenotype and publish combined file
-    ch_ldsc_out.ldsc_h2
-        .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
-        .groupTuple(by: 0)
-        | COLLECT_LDSC_RESULTS
+    ch_ldsc_collected = COLLECT_LDSC_RESULTS(
+        ch_ldsc_out.ldsc_h2
+            .map { meta, txt -> tuple([phenotype: meta.phenotype], txt) }
+            .groupTuple(by: 0)
+    )
 
     ch_ldsc_corrected = ch_ldsc_out.sumstats_parquet
 
@@ -99,6 +104,27 @@ workflow {
 
     // Manhattan and QQ plots for each meta-analysis result
     PLOT_META_GWAS(ch_collected_meta.sumstats)
+
+    // ---------------------------------------------------------------------------
+    // QC figures (Issue #4)
+    // ---------------------------------------------------------------------------
+
+    // Per-cohort QC plots + summary stats for cross-cohort comparison
+    ch_qc_input = QC_INPUT_GWAS(ch_sumstats_munged.sumstats_munged)
+
+    // Join per-phenotype collected tables with grouped per-cohort summaries
+    ch_qc_summaries_by_phenotype = ch_qc_input.qc_summary
+        .map { meta, tsv -> [[phenotype: meta.phenotype], tsv] }
+        .groupTuple(by: 0)
+
+    QC_COHORT_SUMMARY(
+        ch_filter_stats_collected.filter_stats
+            .join(ch_ldsc_collected.ldsc_h2,          by: 0)
+            .join(ch_qc_summaries_by_phenotype,        by: 0)
+    )
+
+    // Meta-analysis heterogeneity and N_CONTRIBUTIONS QC plots
+    QC_META_GWAS(ch_collected_meta.sumstats)
 
     // ---------------------------------------------------------------------------
     // MAGMA / PoPS / FLAMES gene-prioritisation pipeline

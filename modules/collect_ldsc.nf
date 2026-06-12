@@ -6,7 +6,7 @@ process COLLECT_LDSC_RESULTS {
         tuple val(meta), path(ldsc_files)
 
     output:
-        tuple val(meta), path("*.ldsc_h2.txt")
+        tuple val(meta), path("*.ldsc_h2.txt"), emit: ldsc_h2
 
     script:
     def prefix = "${meta.phenotype}"
