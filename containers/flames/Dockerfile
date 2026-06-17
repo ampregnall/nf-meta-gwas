@@ -6,7 +6,7 @@ LABEL description="FLAMES gene prioritization environment, pinned to ampregnall/
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git && \
     git clone https://github.com/ampregnall/FLAMES.git /opt/flames && \
-    cd /opt/flames && git checkout 2008304 && \
+    cd /opt/flames && git checkout 7fc943c && \
     pip install --no-cache-dir \
         "Brotli==1.1.0" \
         "numpy==1.24.4" \
