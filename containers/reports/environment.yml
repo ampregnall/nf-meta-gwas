@@ -12,3 +12,4 @@ dependencies:
   - pyyaml
   - pip:
     - itables==1.7.1
+    - papermill
