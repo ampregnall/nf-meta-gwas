@@ -10,3 +10,4 @@
 
 # singularity images
 containers/*.sif
+/.quarto-home
