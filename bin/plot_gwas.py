@@ -196,7 +196,7 @@ def manhattan_plot(df, offsets, annotations, gtf_path):
         p9.ggplot(df, p9.aes(x="cumpos", y="mlog10p", color="color"))
         + p9.geom_point(size=0.35, alpha=0.75, stroke=0)
         + p9.geom_hline(yintercept=sig_line, linetype="dashed", color="#444444", size=0.4)
-        + p9.scale_color_manual(values={c: c for c in color_vals}, guide=False)
+        + p9.scale_color_manual(values={c: c for c in color_vals}, guide=None)
         + p9.scale_x_continuous(
             breaks=x_breaks,
             labels=x_labels,

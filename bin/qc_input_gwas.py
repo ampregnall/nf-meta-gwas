@@ -72,7 +72,7 @@ def precision_sample_size_plot(df):
     return (
         ggplot(sub, aes(x="CHR_f", y="metric", fill="fill"))
         + geom_violin(color="none", alpha=0.85, scale="width")
-        + scale_fill_identity(guide=False)
+        + scale_fill_identity(guide=None)
         + scale_x_discrete(name="Chromosome")
         + scale_y_continuous(name=r"log₁₀(SE × √N)")
         + geom_hline(
