@@ -7,13 +7,13 @@ process PREPARE_VEP_INPUT {
         tuple val(meta), path(credset)
 
     output:
-        tuple val(meta), path("*.vep_input.txt"), emit: vep_input
+        tuple val(meta), path("*.vep"), emit: vep_input
 
     script:
     def prefix = "${meta.phenotype}-${meta.population}"
     """
     prepare_vep_input.py \
         --credset ${credset} \
-        --output  ${prefix}.vep_input.txt
+        --output  ${prefix}.vep_input
     """
 }
