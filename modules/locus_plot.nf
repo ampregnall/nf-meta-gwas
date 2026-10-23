@@ -21,7 +21,6 @@ process LOCUS_PLOT {
         --locus_summary ${locus_summary} \
         --sumstats ${sumstats_files} \
         --phenotype ${meta.phenotype} \
-        --gtf ${params.gtf} \
         --population_vcf_map '${vcf_map_json}'
     """
 }
