@@ -1,4 +1,4 @@
-include { samplesheetToList } from 'plugin/nf-schema'
+include { samplesheetToList } from "plugin/nf-schema"
 include { MUNGE_SUMSTATS } from "${projectDir}/modules/munge_sumstats.nf"
 include { LDSC_CORRECTION } from "${projectDir}/modules/ldsc_correction.nf"
 include { COLLECT_LDSC_RESULTS } from "${projectDir}/modules/collect_ldsc.nf"
@@ -169,9 +169,9 @@ workflow {
 
         ch_magma = MAGMA_GENE(ch_magma_input.magma_input)
 
-        // MAGMA tissue expression and PoPS both branch from the genes.raw output
         ch_magma_tissue = MAGMA_TISSUE(ch_magma.genes_raw)
-        ch_pops         = POPS(ch_magma.genes_raw)
+        ch_pops_input   = ch_magma.genes_raw.join(ch_magma.genes_out)
+        ch_pops         = POPS(ch_pops_input)
 
         // FLAMES additionally requires annotation data; ch_abf is always defined
         // (gated upstream by GWS hits) so this reference is always safe
