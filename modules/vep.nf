@@ -1,6 +1,6 @@
 process VEP {
     cpus 4
-    container 'docker://ensemblorg/ensembl-vep'
+    container 'ensemblorg/ensembl-vep:release_113.4'
     clusterOptions = { "-R \"rusage[mem=${8000 * task.attempt}]\"" }
     maxRetries 2
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
