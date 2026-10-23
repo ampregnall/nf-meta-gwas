@@ -6,7 +6,7 @@ process FLAMES {
     errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'finish' }
 
     publishDir(
-        { "${launchDir}/results/flames/${meta.phenotype}" },
+        { "${launchDir}/results/flames/${meta.phenotype}/${meta.population}" },
         mode: 'copy'
     )
 
@@ -33,6 +33,7 @@ process FLAMES {
         -p  ${pops_preds} \
         -m  ${genes_out} \
         -mt ${gsa_out} \
+        --ch ${params.flameschain} \
         --GenomicRiskLoci ${genomic_locus} \
         -id ${index_file} \
         --build      GRCh38 \
