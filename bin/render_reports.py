@@ -9,6 +9,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import os
 from pathlib import Path
 
 import yaml
@@ -38,7 +39,27 @@ def render(template_name: str, params_file: Path, output_name: str) -> None:
         "--output", output_name,
         "--to", "html",
     ]
-    result = subprocess.run(cmd)
+    # Quarto writes runtime metadata under the user's home and XDG dirs.
+    # In containerized/readonly-home environments, those locations can be
+    # unavailable even when the working directory is writable, so we redirect
+    # all of them to a writable area inside the current work directory.
+    env = os.environ.copy()
+    writable_root = Path.cwd() / ".quarto-home"
+    try:
+        writable_root.mkdir(parents=True, exist_ok=True)
+        for subdir in ["home", "cache", "config", "data", "tmp"]:
+            (writable_root / subdir).mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    env["HOME"] = str(writable_root / "home")
+    env["XDG_CACHE_HOME"] = str(writable_root / "cache")
+    env["XDG_CONFIG_HOME"] = str(writable_root / "config")
+    env["XDG_DATA_HOME"] = str(writable_root / "data")
+    env["TMPDIR"] = str(writable_root / "tmp")
+    env["TMP"] = str(writable_root / "tmp")
+
+    result = subprocess.run(cmd, env=env)
     if result.returncode != 0:
         print(f"ERROR: quarto render failed for {template_name}", file=sys.stderr)
         sys.exit(result.returncode)
