@@ -11,7 +11,7 @@ process POPS {
     )
 
     input:
-        tuple val(meta), path(genes_raw)
+        tuple val(meta), path(genes_raw), path(genes_out)
 
     output:
         tuple val(meta), path("*.preds"), emit: pops_preds
