@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 box::use(
-  vroom[vroom, vroom_write],
+  vroom[vroom, vroom_write, col_character],
   dplyr[mutate, arrange, filter, distinct, row_number, select, desc, group_by, ungroup],
   glue[glue],
   purrr[walk2],
@@ -24,7 +24,7 @@ parser$add_argument(
 )
 args <- parser$parse_args()
 
-credset <- vroom(args$credset, show_col_types = FALSE)
+credset <- vroom(args$credset, show_col_types = FALSE, col_types = list(LOCUS = col_character()))
 
 # FLAMES requires CHR:POS:EA:NEA — the reverse of our pipeline convention
 credset <- credset |>
